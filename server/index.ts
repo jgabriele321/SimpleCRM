@@ -1,13 +1,20 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import cors from 'cors';
+import path from 'path';
 
 const app = express();
 const prisma = new PrismaClient();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3003;
+const isProduction = process.env.NODE_ENV === 'production';
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static files in production
+if (isProduction) {
+  app.use(express.static(path.join(__dirname, '../dist')));
+}
 
 // Helpers
 const parseTags = (deal: any) => ({
@@ -66,6 +73,14 @@ app.delete('/api/deals/:id', async (req, res) => {
   }
 });
 
+// Serve React app for all non-API routes in production
+if (isProduction) {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../dist/index.html'));
+  });
+}
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Environment: ${isProduction ? 'production' : 'development'}`);
 });

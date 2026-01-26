@@ -1,0 +1,29 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Deal {
+  id                Int       @id @default(autoincrement())
+  title             String
+  personName        String?
+  companyName       String?
+  stage             String    @default("lead")
+  tags              String    @default("[]")
+  priority          String    @default("medium")
+  expectedValue     Float     @default(0)
+  closeProbability  Int       @default(50)
+  expectedCloseDate DateTime?
+  lastContactDate   DateTime?
+  nextActionDate    DateTime?
+  nextAction        String?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+

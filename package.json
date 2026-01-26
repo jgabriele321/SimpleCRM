@@ -8,14 +8,16 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "build:server": "tsc --project tsconfig.server.json",
     "preview": "vite preview",
     "server": "ts-node server/index.ts",
+    "start": "node server/index.js",
     "seed": "ts-node prisma/seed.ts",
     "db:migrate": "prisma migrate dev"
   },
   "dependencies": {
-    "@google/genai": "^0.0.21",
+    "@openrouter/sdk": "^0.1.27",
     "@prisma/client": "^5.1.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",

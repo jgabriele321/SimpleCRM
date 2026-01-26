@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, Content, Part } from "@google/genai";
+import { OpenRouter } from "@openrouter/sdk";
 import { Deal } from '../types';
 
 interface SalesCoachProps {
@@ -59,13 +59,12 @@ export const SalesCoach: React.FC<SalesCoachProps> = ({ deals }) => {
     setIsThinking(true);
 
     try {
-      // 1. Initialize API
-      // Note: In a real production app, you might proxy this through your backend 
-      // to keep the key secure, or use a specific frontend-restricted key.
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // 1. Initialize OpenRouter client
+      const client = new OpenRouter({
+        apiKey: import.meta.env.VITE_OPENROUTER_API_KEY || '',
+      });
 
-      // 2. Prepare Context
-      // We explicitly strictly type the deals to JSON string for the prompt
+      // 2. Prepare Context - pipeline data for the AI
       const dealsContext = JSON.stringify(deals.map(d => ({
         id: d.id,
         title: d.title,
@@ -78,49 +77,47 @@ export const SalesCoach: React.FC<SalesCoachProps> = ({ deals }) => {
         notes: d.notes
       })), null, 2);
 
-      const systemInstruction = `
-        You are an elite Sales Coach. You are sharp, strategic, aggressive but helpful, and focused purely on revenue and deal velocity.
-        
-        You have access to the user's current CRM pipeline data below. 
-        ALWAYS reference specific deals from this data when answering, if relevant.
-        
-        Your goals:
-        1. Identify stalled deals (old last contact date).
-        2. Suggest specific, tactical next steps (e.g., "Send an email to Alice at Acme asking about X").
-        3. Roleplay negotiation or objection handling if asked.
-        4. Be concise. Do not write long paragraphs. Use bullet points.
-        
-        CURRENT PIPELINE DATA:
-        ${dealsContext}
-      `;
+      const systemPrompt = `You are an elite Sales Coach. You are sharp, strategic, aggressive but helpful, and focused purely on revenue and deal velocity.
 
-      // 3. Prepare History for the API
-      // Transform our simple Message format to the API's Content format
-      const history: Content[] = messages.map(m => ({
-        role: m.role,
-        parts: [{ text: m.text } as Part]
-      }));
+You have access to the user's current CRM pipeline data below. 
+ALWAYS reference specific deals from this data when answering, if relevant.
 
-      // 4. Create Chat
-      const chat = ai.chats.create({
-        model: 'gemini-2.5-flash',
-        config: {
-          systemInstruction: systemInstruction,
-        },
-        history: history
+Your goals:
+1. Identify stalled deals (old last contact date).
+2. Suggest specific, tactical next steps (e.g., "Send an email to Alice at Acme asking about X").
+3. Roleplay negotiation or objection handling if asked.
+4. Be concise. Do not write long paragraphs. Use bullet points.
+
+CURRENT PIPELINE DATA:
+${dealsContext}`;
+
+      // 3. Build message history for OpenRouter (OpenAI-compatible format)
+      const chatMessages = [
+        { role: 'system' as const, content: systemPrompt },
+        ...messages.map(m => ({
+          role: m.role === 'model' ? 'assistant' as const : 'user' as const,
+          content: m.text
+        })),
+        { role: 'user' as const, content: userMsg.text }
+      ];
+
+      // 4. Send request to OpenRouter
+      const result = await client.chat.send({
+        model: 'anthropic/claude-3.5-sonnet',
+        messages: chatMessages,
+        stream: false,
+        temperature: 0.7,
+        maxTokens: 1000
       });
 
-      // 5. Send Message
-      const result = await chat.sendMessage({ message: userMsg.text });
-      const responseText = result.text;
-
+      const responseText = result.choices[0]?.message?.content || 'No response received.';
       setMessages(prev => [...prev, { role: 'model', text: responseText }]);
 
     } catch (error) {
-      console.error("Gemini API Error:", error);
+      console.error("OpenRouter API Error:", error);
       setMessages(prev => [...prev, { 
         role: 'model', 
-        text: "I'm having trouble connecting to my brain right now. Please check your internet connection or API key." 
+        text: "I'm having trouble connecting right now. Please check your internet connection or API key (VITE_OPENROUTER_API_KEY in .env)." 
       }]);
     } finally {
       setIsThinking(false);
@@ -152,7 +149,7 @@ export const SalesCoach: React.FC<SalesCoachProps> = ({ deals }) => {
           </div>
           <div>
             <h2 className="font-bold text-lg">Sales Coach AI</h2>
-            <p className="text-indigo-200 text-xs">Powered by Gemini 2.5 • Context-Aware</p>
+            <p className="text-indigo-200 text-xs">Powered by OpenRouter • Claude 3.5 Sonnet</p>
           </div>
         </div>
         <button 

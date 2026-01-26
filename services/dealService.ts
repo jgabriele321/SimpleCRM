@@ -1,68 +1,12 @@
 import { Deal, Stage } from '../types';
 
 // TOGGLE THIS TO SWITCH BETWEEN LOCAL STORAGE DEMO AND REAL BACKEND
-const USE_LOCAL_STORAGE = true;
+const USE_LOCAL_STORAGE = false;
 const STORAGE_KEY = 'prism_crm_deals';
 const API_URL = '/api/deals';
 
-const MOCK_DATA: Deal[] = [
-  {
-    id: '1',
-    title: 'Enterprise License - Acme Corp',
-    personName: 'Alice Johnson',
-    companyName: 'Acme Corp',
-    stage: 'active_convo',
-    tags: ['enterprise', 'saas', 'Q3'],
-    priority: 'high',
-    expectedValue: 50000,
-    closeProbability: 60,
-    nextAction: 'Send technical specs',
-    nextActionDate: new Date(Date.now() + 86400000 * 2).toISOString(), // 2 days
-    lastContactDate: new Date(Date.now() - 86400000 * 5).toISOString(),
-    notes: 'They are very interested in the SSO features. Need to confirm compliance requirements.',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    title: 'Startup Plan - Beta Inc',
-    personName: 'Bob Smith',
-    companyName: 'Beta Inc',
-    stage: 'proposal_sent',
-    tags: ['inbound', 'startup'],
-    priority: 'medium',
-    expectedValue: 5000,
-    closeProbability: 80,
-    nextAction: 'Follow up on proposal',
-    nextActionDate: new Date(Date.now() + 86400000).toISOString(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    title: 'Consulting Project - Gamma',
-    companyName: 'Gamma Group',
-    stage: 'lead',
-    tags: ['consulting'],
-    priority: 'low',
-    expectedValue: 12000,
-    closeProbability: 20,
-    nextAction: 'Initial outreach',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '4',
-    title: 'Legacy Contract Renewal',
-    stage: 'closed_won',
-    tags: ['renewal'],
-    priority: 'high',
-    expectedValue: 25000,
-    closeProbability: 100,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+// Start with empty data - no sample deals
+const MOCK_DATA: Deal[] = [];
 
 // Helper to simulate delay for realism
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
