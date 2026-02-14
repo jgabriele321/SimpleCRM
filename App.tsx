@@ -140,8 +140,11 @@ function App() {
       const aTargeted = isDealTargeted(a.id) ? 1 : 0;
       const bTargeted = isDealTargeted(b.id) ? 1 : 0;
       if (bTargeted !== aTargeted) return bTargeted - aTargeted;
-      if (b.closeProbability !== a.closeProbability) return b.closeProbability - a.closeProbability;
-      return b.expectedValue - a.expectedValue;
+      
+      const probDiff = Number(b.closeProbability) - Number(a.closeProbability);
+      if (probDiff !== 0) return probDiff;
+      
+      return Number(b.expectedValue) - Number(a.expectedValue);
     });
   }, [deals, filters, targetedDealIds]);
 
