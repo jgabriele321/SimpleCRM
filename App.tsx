@@ -8,6 +8,8 @@ import { SalesCoach } from './components/SalesCoach';
 
 type Tab = 'pipeline' | 'coach';
 
+const TARGETED_DEALS_KEY = 'prism_targeted_deals';
+
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('pipeline');
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -17,6 +19,39 @@ function App() {
   // UI State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
+
+  // Targeted deals (persisted in localStorage)
+  const [targetedDealIds, setTargetedDealIds] = useState<Set<string | number>>(() => {
+    try {
+      const stored = localStorage.getItem(TARGETED_DEALS_KEY);
+      if (stored) return new Set(JSON.parse(stored));
+    } catch {}
+    return new Set();
+  });
+
+  // Persist targeted deals to localStorage
+  useEffect(() => {
+    localStorage.setItem(TARGETED_DEALS_KEY, JSON.stringify([...targetedDealIds]));
+  }, [targetedDealIds]);
+
+  const toggleTargeted = (dealId: string | number) => {
+    setTargetedDealIds(prev => {
+      const next = new Set(prev);
+      // Normalize to string for consistent comparison
+      const idStr = String(dealId);
+      const found = [...next].find(id => String(id) === idStr);
+      if (found !== undefined) {
+        next.delete(found);
+      } else {
+        next.add(dealId);
+      }
+      return next;
+    });
+  };
+
+  const isDealTargeted = (dealId: string | number): boolean => {
+    return [...targetedDealIds].some(id => String(id) === String(dealId));
+  };
 
   // Filters
   const [filters, setFilters] = useState<FilterState>({
@@ -84,9 +119,9 @@ function App() {
     }
   };
 
-  // Derived State (Filtered Deals)
+  // Derived State (Filtered + Sorted Deals)
   const filteredDeals = useMemo(() => {
-    return deals.filter(deal => {
+    const filtered = deals.filter(deal => {
       // Search
       const searchContent = (deal.title + deal.personName + deal.companyName + deal.notes + deal.tags.join(' ')).toLowerCase();
       if (filters.search && !searchContent.includes(filters.search.toLowerCase())) return false;
@@ -99,7 +134,16 @@ function App() {
 
       return true;
     });
-  }, [deals, filters]);
+
+    // Sort: targeted deals first, then by closeProbability desc, then expectedValue desc
+    return filtered.sort((a, b) => {
+      const aTargeted = isDealTargeted(a.id) ? 1 : 0;
+      const bTargeted = isDealTargeted(b.id) ? 1 : 0;
+      if (bTargeted !== aTargeted) return bTargeted - aTargeted;
+      if (b.closeProbability !== a.closeProbability) return b.closeProbability - a.closeProbability;
+      return b.expectedValue - a.expectedValue;
+    });
+  }, [deals, filters, targetedDealIds]);
 
   // Handle Filter Toggles
   const toggleStageFilter = (stage: Stage) => {
@@ -253,6 +297,8 @@ function App() {
                     key={deal.id} 
                     deal={deal} 
                     onClick={handleEdit}
+                    isTargeted={isDealTargeted(deal.id)}
+                    onToggleTarget={() => toggleTargeted(deal.id)}
                   />
                 ))}
               </div>
