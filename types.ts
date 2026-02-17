@@ -24,6 +24,7 @@ export interface Deal {
   nextActionDate?: string; // ISO date string
   nextAction?: string;
   notes?: string;
+  isTargeted: boolean;
   createdAt: string;
   updatedAt: string;
 }

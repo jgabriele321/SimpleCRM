@@ -62,6 +62,24 @@ app.put('/api/deals/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to update deal' });
     }
 });
+app.patch('/api/deals/:id/target', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const deal = await prisma.deal.findUnique({ where: { id: Number(id) } });
+        if (!deal) {
+            res.status(404).json({ error: 'Deal not found' });
+            return;
+        }
+        const updated = await prisma.deal.update({
+            where: { id: Number(id) },
+            data: { isTargeted: !deal.isTargeted }
+        });
+        res.json(parseTags(updated));
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Failed to toggle target' });
+    }
+});
 app.delete('/api/deals/:id', async (req, res) => {
     const { id } = req.params;
     try {
