@@ -14,13 +14,13 @@ git -c safe.directory=/var/www/crm pull origin main
 echo "Installing dependencies..."
 npm install
 
-# Run database migrations
+# Run database migrations (use local prisma to avoid version mismatch)
 echo "Running database migrations..."
-npx prisma migrate deploy
+npx prisma@5 migrate deploy
 
 # Generate Prisma client
 echo "Generating Prisma client..."
-npx prisma generate
+npx prisma@5 generate
 
 # Build frontend
 echo "Building frontend..."
