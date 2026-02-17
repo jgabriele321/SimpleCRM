@@ -74,6 +74,22 @@ export const dealService = {
     }
   },
 
+  toggleTarget: async (id: string | number): Promise<Deal> => {
+    if (USE_LOCAL_STORAGE) {
+      await delay(200);
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const index = stored.findIndex((d: Deal) => d.id.toString() === id.toString());
+      if (index === -1) throw new Error('Deal not found');
+      stored[index].isTargeted = !stored[index].isTargeted;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+      return stored[index];
+    } else {
+      const res = await fetch(`${API_URL}/${id}/target`, { method: 'PATCH' });
+      if (!res.ok) throw new Error('Failed to toggle target');
+      return res.json();
+    }
+  },
+
   delete: async (id: string | number): Promise<void> => {
     if (USE_LOCAL_STORAGE) {
       await delay(300);
