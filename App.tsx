@@ -224,7 +224,7 @@ function App() {
       const daysSinceTouch = isValidDate(deal.lastContactDate)
         ? Math.floor((now.getTime() - new Date(deal.lastContactDate!).getTime()) / DAY_MS)
         : null;
-      const isTargeted = isDealTargeted(deal.id) ? 'Yes' : 'No';
+      const isTargeted = deal.isTargeted ? 'Yes' : 'No';
 
       lines.push(
         `### ${index + 1}. ${deal.title}`,
