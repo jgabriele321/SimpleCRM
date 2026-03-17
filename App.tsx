@@ -195,7 +195,7 @@ function App() {
       '',
       `Generated: ${formatDateTime(now.toISOString())}`,
       `Total deals: ${deals.length}`,
-      `Targeted deals: ${targetedDealIds.size}`,
+      `Targeted deals: ${deals.filter(d => d.isTargeted).length}`,
       '',
       '## Momentum Snapshot',
       '',
