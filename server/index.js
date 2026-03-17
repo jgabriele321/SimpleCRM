@@ -18,12 +18,27 @@ if (isProduction) {
     app.use(express_1.default.static(path_1.default.join(__dirname, '../dist')));
 }
 // Helpers
+const normalizeStage = (stage) => {
+    if (!stage)
+        return 'signal';
+    if (stage === 'lead')
+        return 'signal';
+    if (stage === 'contacted')
+        return 'active_convo';
+    if (stage === 'proposal')
+        return 'proposal_sent';
+    if (stage === 'negotiation')
+        return 'verbal_yes';
+    return stage;
+};
 const parseTags = (deal) => ({
     ...deal,
+    stage: normalizeStage(deal.stage),
     tags: deal.tags ? JSON.parse(deal.tags) : []
 });
 const serializeTags = (data) => ({
     ...data,
+    stage: normalizeStage(data.stage),
     tags: data.tags ? JSON.stringify(data.tags) : '[]'
 });
 // Routes
@@ -35,6 +50,7 @@ app.get('/api/deals', async (req, res) => {
         res.json(deals.map(parseTags));
     }
     catch (error) {
+        console.error('Error fetching deals:', error);
         res.status(500).json({ error: 'Failed to fetch deals' });
     }
 });
@@ -51,7 +67,18 @@ app.post('/api/deals', async (req, res) => {
 app.put('/api/deals/:id', async (req, res) => {
     const { id } = req.params;
     try {
+        const currentDeal = await prisma.deal.findUnique({
+            where: { id: Number(id) }
+        });
+        if (!currentDeal) {
+            res.status(404).json({ error: 'Deal not found' });
+            return;
+        }
         const data = serializeTags(req.body);
+        delete data.stageChangedAt;
+        if (typeof req.body.stage === 'string' && req.body.stage !== currentDeal.stage) {
+            data.stageChangedAt = new Date();
+        }
         const deal = await prisma.deal.update({
             where: { id: Number(id) },
             data
@@ -60,24 +87,6 @@ app.put('/api/deals/:id', async (req, res) => {
     }
     catch (error) {
         res.status(500).json({ error: 'Failed to update deal' });
-    }
-});
-app.patch('/api/deals/:id/target', async (req, res) => {
-    const { id } = req.params;
-    try {
-        const deal = await prisma.deal.findUnique({ where: { id: Number(id) } });
-        if (!deal) {
-            res.status(404).json({ error: 'Deal not found' });
-            return;
-        }
-        const updated = await prisma.deal.update({
-            where: { id: Number(id) },
-            data: { isTargeted: !deal.isTargeted }
-        });
-        res.json(parseTags(updated));
-    }
-    catch (error) {
-        res.status(500).json({ error: 'Failed to toggle target' });
     }
 });
 app.delete('/api/deals/:id', async (req, res) => {

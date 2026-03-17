@@ -1,11 +1,12 @@
 export type Stage = 
-  | 'lead'
-  | 'contacted'
+  | 'signal'
   | 'active_convo'
+  | 'ready_for_proposal'
   | 'proposal_sent'
   | 'verbal_yes'
   | 'closed_won'
-  | 'closed_lost';
+  | 'closed_lost'
+  | 'nurture';
 
 export type Priority = 'low' | 'medium' | 'high';
 
@@ -23,6 +24,11 @@ export interface Deal {
   lastContactDate?: string; // ISO date string
   nextActionDate?: string; // ISO date string
   nextAction?: string;
+  gatekeeperName?: string;
+  gatekeeperLastContacted?: string; // ISO date string
+  stageChangedAt?: string; // ISO date string
+  lossReason?: string;
+  isGatekept?: boolean;
   notes?: string;
   isTargeted: boolean;
   createdAt: string;
@@ -38,23 +44,49 @@ export interface FilterState {
 }
 
 export const STAGE_LABELS: Record<Stage, string> = {
-  lead: 'Lead',
-  contacted: 'Contacted',
+  signal: 'Signal / Early Lead',
   active_convo: 'Active Conversation',
-  proposal_sent: 'Proposal Sent',
-  verbal_yes: 'Verbal Yes',
+  ready_for_proposal: 'Ready for Proposal',
+  proposal_sent: 'Proposal Out',
+  verbal_yes: 'Verbal Yes / Awaiting Start',
   closed_won: 'Closed Won',
   closed_lost: 'Closed Lost',
+  nurture: 'Nurture',
 };
 
 export const STAGE_COLORS: Record<Stage, string> = {
-  lead: 'bg-slate-100 text-slate-700 border-slate-200',
-  contacted: 'bg-blue-50 text-blue-700 border-blue-200',
+  signal: 'bg-slate-100 text-slate-700 border-slate-200',
   active_convo: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  ready_for_proposal: 'bg-violet-50 text-violet-700 border-violet-200',
   proposal_sent: 'bg-purple-50 text-purple-700 border-purple-200',
   verbal_yes: 'bg-lime-50 text-lime-700 border-lime-200',
   closed_won: 'bg-emerald-100 text-emerald-800 border-emerald-300',
   closed_lost: 'bg-rose-50 text-rose-700 border-rose-200',
+  nurture: 'bg-amber-50 text-amber-700 border-amber-200',
+};
+
+export const normalizeStage = (stage?: string): Stage => {
+  switch (stage) {
+    case 'lead':
+      return 'signal';
+    case 'contacted':
+      return 'active_convo';
+    case 'proposal':
+      return 'proposal_sent';
+    case 'negotiation':
+      return 'verbal_yes';
+    case 'signal':
+    case 'active_convo':
+    case 'ready_for_proposal':
+    case 'proposal_sent':
+    case 'verbal_yes':
+    case 'closed_won':
+    case 'closed_lost':
+    case 'nurture':
+      return stage;
+    default:
+      return 'signal';
+  }
 };
 
 export const PRIORITY_COLORS: Record<Priority, string> = {

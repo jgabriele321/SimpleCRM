@@ -4,12 +4,33 @@ import { dealService } from './services/dealService';
 import { DealCard } from './components/DealCard';
 import { DealForm } from './components/DealForm';
 import { PipelineStats } from './components/PipelineStats';
-import { SalesCoach } from './components/SalesCoach';
+import { MomentumDashboard } from './components/MomentumDashboard';
 
-type Tab = 'pipeline' | 'coach';
+type Tab = 'dashboard' | 'pipeline';
 
+const TARGETED_DEALS_KEY = 'prism_targeted_deals';
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const toDate = (value?: string) => (value ? new Date(value) : null);
+const isValidDate = (value?: string) => {
+  const date = toDate(value);
+  return !!date && !Number.isNaN(date.getTime());
+};
+
+const formatDate = (value?: string) => {
+  if (!isValidDate(value)) return '-';
+  return new Date(value!).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
+const formatDateTime = (value?: string) => {
+  if (!isValidDate(value)) return '-';
+  return new Date(value!).toLocaleString('en-US');
+};
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value || 0);
 function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('pipeline');
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [deals, setDeals] = useState<Deal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -132,6 +153,120 @@ function App() {
     }));
   };
 
+  const handleExportMarkdown = () => {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const weekStart = new Date(now);
+    const day = weekStart.getDay();
+    const offset = day === 0 ? -6 : 1 - day;
+    weekStart.setDate(weekStart.getDate() + offset);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const stageBreakdown = Object.entries(STAGE_LABELS).map(([stage, label]) => {
+      const stageDeals = deals.filter((deal) => deal.stage === stage);
+      const value = stageDeals.reduce((sum, deal) => sum + (deal.expectedValue || 0), 0);
+      return { stage, label, count: stageDeals.length, value };
+    });
+
+    const proposalsOut = deals.filter((deal) => deal.stage === 'proposal_sent').length;
+    const activePipeline = deals.filter((deal) => !['closed_won', 'closed_lost', 'nurture'].includes(deal.stage));
+    const totalPipelineValue = activePipeline.reduce((sum, deal) => sum + (deal.expectedValue || 0), 0);
+    const expectedRevenue30 = deals
+      .filter((deal) => {
+        if (!isValidDate(deal.expectedCloseDate)) return false;
+        const closeDate = new Date(deal.expectedCloseDate!);
+        const inWindow = closeDate >= now && closeDate <= new Date(now.getTime() + 30 * DAY_MS);
+        return inWindow;
+      })
+      .reduce((sum, deal) => sum + ((deal.expectedValue || 0) * (deal.closeProbability || 0)) / 100, 0);
+    const conversationsThisWeek = deals.filter((deal) => {
+      const lastContact = toDate(deal.lastContactDate);
+      const stageChanged = toDate(deal.stageChangedAt);
+      const lastTouchInWeek = !!lastContact && lastContact >= weekStart && lastContact <= weekEnd;
+      const stageChangeInWeek = !!stageChanged && stageChanged >= weekStart && stageChanged <= weekEnd;
+      return lastTouchInWeek || stageChangeInWeek;
+    }).length;
+
+    const lines: string[] = [
+      `# Prism DealFlow Export - ${today}`,
+      '',
+      `Generated: ${formatDateTime(now.toISOString())}`,
+      `Total deals: ${deals.length}`,
+      `Targeted deals: ${targetedDealIds.size}`,
+      '',
+      '## Momentum Snapshot',
+      '',
+      `- Proposals out now: ${proposalsOut} / 10`,
+      `- Total pipeline value: ${formatCurrency(totalPipelineValue)}`,
+      `- Expected revenue (next 30 days): ${formatCurrency(expectedRevenue30)}`,
+      `- Conversations this week: ${conversationsThisWeek}`,
+      '',
+      '## Stage Breakdown',
+      '',
+      '| Stage | Deals | Total Value |',
+      '|---|---:|---:|',
+      ...stageBreakdown.map((item) => `| ${item.label} | ${item.count} | ${formatCurrency(item.value)} |`),
+      '',
+      '## Active Filters',
+      '',
+      `- Search: ${filters.search || '(none)'}`,
+      `- Stage filters: ${filters.stages.length ? filters.stages.map((s) => STAGE_LABELS[s]).join(', ') : '(none)'}`,
+      `- Hide closed: ${filters.hideClosed ? 'Yes' : 'No'}`,
+      '',
+      '## Deal Details',
+      ''
+    ];
+
+    deals.forEach((deal, index) => {
+      const daysSinceTouch = isValidDate(deal.lastContactDate)
+        ? Math.floor((now.getTime() - new Date(deal.lastContactDate!).getTime()) / DAY_MS)
+        : null;
+      const isTargeted = isDealTargeted(deal.id) ? 'Yes' : 'No';
+
+      lines.push(
+        `### ${index + 1}. ${deal.title}`,
+        '',
+        `- ID: ${deal.id}`,
+        `- Targeted: ${isTargeted}`,
+        `- Stage: ${STAGE_LABELS[deal.stage] || deal.stage}`,
+        `- Priority: ${deal.priority}`,
+        `- Person: ${deal.personName || '-'}`,
+        `- Company: ${deal.companyName || '-'}`,
+        `- Expected value: ${formatCurrency(deal.expectedValue || 0)}`,
+        `- Close probability: ${deal.closeProbability || 0}%`,
+        `- Expected close date: ${formatDate(deal.expectedCloseDate)}`,
+        `- Last contact date: ${formatDate(deal.lastContactDate)}`,
+        `- Days since touch: ${daysSinceTouch ?? '-'}`,
+        `- Next action: ${deal.nextAction || '-'}`,
+        `- Next action date: ${formatDate(deal.nextActionDate)}`,
+        `- Gatekept: ${deal.isGatekept ? 'Yes' : 'No'}`,
+        `- Gatekeeper: ${deal.gatekeeperName || '-'}`,
+        `- Gatekeeper last contacted: ${formatDate(deal.gatekeeperLastContacted)}`,
+        `- Loss reason: ${deal.lossReason || '-'}`,
+        `- Stage changed at: ${formatDateTime(deal.stageChangedAt)}`,
+        `- Tags: ${deal.tags?.length ? deal.tags.join(', ') : '-'}`,
+        `- Notes: ${deal.notes || '-'}`,
+        `- Created at: ${formatDateTime(deal.createdAt)}`,
+        `- Updated at: ${formatDateTime(deal.updatedAt)}`,
+        ''
+      );
+    });
+
+    const markdown = lines.join('\n');
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `prism-dealflow-${today}.md`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
       
@@ -140,12 +275,17 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-0">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             
-            <div className="flex items-center space-x-3">
+            <button
+              type="button"
+              onClick={handleExportMarkdown}
+              title="Download full CRM markdown export"
+              className="flex items-center space-x-3 text-left rounded-lg hover:bg-slate-100 px-1 py-1 transition-colors"
+            >
               <div className="p-2 bg-indigo-600 rounded-lg text-white">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900">Prism DealFlow</h1>
-            </div>
+            </button>
 
             <div className="flex items-center space-x-4 flex-1 justify-end">
               {activeTab === 'pipeline' && (
@@ -176,6 +316,16 @@ function App() {
           {/* Navigation Tabs */}
           <div className="flex space-x-8">
             <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`pb-4 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'dashboard'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              Momentum
+            </button>
+            <button
               onClick={() => setActiveTab('pipeline')}
               className={`pb-4 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'pipeline' 
@@ -184,17 +334,6 @@ function App() {
               }`}
             >
               Pipeline View
-            </button>
-            <button
-              onClick={() => setActiveTab('coach')}
-              className={`pb-4 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
-                activeTab === 'coach' 
-                  ? 'border-indigo-600 text-indigo-600' 
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-              }`}
-            >
-              <span>Sales Coach AI</span>
-              <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px] uppercase font-bold tracking-wide">New</span>
             </button>
           </div>
         </div>
@@ -242,16 +381,15 @@ function App() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {activeTab === 'coach' ? (
-          <SalesCoach deals={deals} />
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          </div>
+        ) : activeTab === 'dashboard' ? (
+          <MomentumDashboard deals={deals} onEditDeal={handleEdit} />
         ) : (
           <>
-            {isLoading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-              </div>
-            ) : filteredDeals.length === 0 ? (
+            {filteredDeals.length === 0 ? (
               <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
                 <div className="mx-auto h-16 w-16 text-slate-300 mb-4">
                   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>

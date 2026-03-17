@@ -55,13 +55,13 @@ export const PipelineStats: React.FC<PipelineStatsProps> = ({ deals }) => {
         {/* Mini Stage Breakdown (Desktop only) */}
         <div className="hidden md:flex items-center space-x-2">
             <div className="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">
-                Lead: <b>{activeDeals.filter(d => d.stage === 'lead').length}</b>
-            </div>
-            <div className="px-2 py-1 bg-blue-50 rounded text-xs text-blue-700">
-                Contact: <b>{activeDeals.filter(d => d.stage === 'contacted').length}</b>
+                Signal: <b>{activeDeals.filter(d => d.stage === 'signal').length}</b>
             </div>
             <div className="px-2 py-1 bg-cyan-50 rounded text-xs text-cyan-700">
                 Active: <b>{activeDeals.filter(d => d.stage === 'active_convo').length}</b>
+            </div>
+            <div className="px-2 py-1 bg-violet-50 rounded text-xs text-violet-700">
+                Ready: <b>{activeDeals.filter(d => d.stage === 'ready_for_proposal').length}</b>
             </div>
              <div className="px-2 py-1 bg-purple-50 rounded text-xs text-purple-700">
                 Prop: <b>{activeDeals.filter(d => d.stage === 'proposal_sent').length}</b>

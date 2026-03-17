@@ -1,4 +1,4 @@
-import { Deal, Stage } from '../types';
+import { Deal, normalizeStage } from '../types';
 
 // TOGGLE THIS TO SWITCH BETWEEN LOCAL STORAGE DEMO AND REAL BACKEND
 const USE_LOCAL_STORAGE = false;
@@ -20,11 +20,18 @@ export const dealService = {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_DATA));
         return MOCK_DATA;
       }
-      return JSON.parse(stored);
+      return JSON.parse(stored).map((deal: Deal) => ({
+        ...deal,
+        stage: normalizeStage(deal.stage)
+      }));
     } else {
       const res = await fetch(API_URL);
       if (!res.ok) throw new Error('Failed to fetch deals');
-      return res.json();
+      const deals = await res.json();
+      return deals.map((deal: Deal) => ({
+        ...deal,
+        stage: normalizeStage(deal.stage)
+      }));
     }
   },
 

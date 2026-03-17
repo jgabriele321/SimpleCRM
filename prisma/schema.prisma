@@ -12,7 +12,7 @@ model Deal {
   title             String
   personName        String?
   companyName       String?
-  stage             String    @default("lead")
+  stage             String    @default("signal")
   tags              String    @default("[]")
   priority          String    @default("medium")
   expectedValue     Float     @default(0)
@@ -21,6 +21,11 @@ model Deal {
   lastContactDate   DateTime?
   nextActionDate    DateTime?
   nextAction        String?
+  gatekeeperName    String?
+  gatekeeperLastContacted DateTime?
+  stageChangedAt    DateTime?
+  lossReason        String?
+  isGatekept        Boolean   @default(false)
   notes             String?
   isTargeted        Boolean   @default(false)
   createdAt         DateTime  @default(now())

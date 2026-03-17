@@ -22,6 +22,18 @@ npx prisma@5 migrate deploy
 echo "Generating Prisma client..."
 npx prisma@5 generate
 
+# One-time baseline for existing DBs created before migrations were added.
+HAS_MIGRATIONS_TABLE=$(sqlite3 prisma/dev.db "SELECT name FROM sqlite_master WHERE type='table' AND name='_prisma_migrations';")
+HAS_DEAL_TABLE=$(sqlite3 prisma/dev.db "SELECT name FROM sqlite_master WHERE type='table' AND name='Deal';")
+if [ -z "$HAS_MIGRATIONS_TABLE" ] && [ -n "$HAS_DEAL_TABLE" ]; then
+  echo "Baselining existing database..."
+  npx prisma@5 migrate resolve --applied 20260316122000_initial_baseline
+fi
+
+# Apply Prisma migrations
+echo "Applying Prisma migrations..."
+npx prisma@5 migrate deploy
+
 # Build frontend
 echo "Building frontend..."
 npm run build

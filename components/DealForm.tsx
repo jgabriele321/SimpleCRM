@@ -10,11 +10,12 @@ interface DealFormProps {
 
 const DEFAULT_DEAL: Partial<Deal> = {
   title: '',
-  stage: 'lead',
+  stage: 'signal',
   priority: 'medium',
   closeProbability: 20,
   expectedValue: 0,
   tags: [],
+  isGatekept: false,
   notes: '',
 };
 
@@ -55,6 +56,10 @@ export const DealForm: React.FC<DealFormProps> = ({ initialData, isOpen, onClose
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title) return;
+    if (formData.stage === 'closed_lost' && !formData.lossReason?.trim()) {
+      alert('Please add a loss reason for closed lost deals.');
+      return;
+    }
     
     setIsSaving(true);
     try {
@@ -171,7 +176,13 @@ export const DealForm: React.FC<DealFormProps> = ({ initialData, isOpen, onClose
               <select
                 className="w-full px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 value={formData.stage}
-                onChange={(e) => handleChange('stage', e.target.value as Stage)}
+                onChange={(e) => {
+                  const nextStage = e.target.value as Stage;
+                  handleChange('stage', nextStage);
+                  if (nextStage !== 'closed_lost') {
+                    handleChange('lossReason', undefined);
+                  }
+                }}
               >
                 {Object.entries(STAGE_LABELS).map(([key, label]) => (
                   <option key={key} value={key}>{label}</option>
@@ -188,6 +199,67 @@ export const DealForm: React.FC<DealFormProps> = ({ initialData, isOpen, onClose
               />
             </div>
           </div>
+
+          {/* Gatekeeper Tracking */}
+          <div className="p-4 bg-amber-50 rounded-lg border border-amber-100 space-y-4">
+            <label className="flex items-center space-x-2 text-sm font-medium text-amber-900 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={!!formData.isGatekept}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  handleChange('isGatekept', checked);
+                  if (!checked) {
+                    handleChange('gatekeeperName', undefined);
+                    handleChange('gatekeeperLastContacted', undefined);
+                  }
+                }}
+                className="rounded text-amber-600 focus:ring-amber-500 border-amber-300"
+              />
+              <span>This deal is gatekept</span>
+            </label>
+
+            {formData.isGatekept && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Gatekeeper Name</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 rounded border border-amber-200 bg-white text-slate-900 focus:ring-2 focus:ring-amber-500 text-sm"
+                    placeholder="Name of intermediary"
+                    value={formData.gatekeeperName || ''}
+                    onChange={(e) => handleChange('gatekeeperName', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Last Contacted</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 rounded border border-amber-200 bg-white text-slate-900 focus:ring-2 focus:ring-amber-500 text-sm"
+                    value={formData.gatekeeperLastContacted?.split('T')[0] || ''}
+                    onChange={(e) =>
+                      handleChange('gatekeeperLastContacted', e.target.value ? new Date(e.target.value).toISOString() : undefined)
+                    }
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Loss Reason */}
+          {formData.stage === 'closed_lost' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Loss Reason *</label>
+              <input
+                type="text"
+                required
+                className="w-full px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-slate-900 focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                placeholder="Why was this deal lost?"
+                value={formData.lossReason || ''}
+                onChange={(e) => handleChange('lossReason', e.target.value)}
+              />
+            </div>
+          )}
 
           {/* Action Planning */}
           <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-100 space-y-4">
