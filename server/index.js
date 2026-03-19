@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+require("dotenv/config");
 const express_1 = __importDefault(require("express"));
 const client_1 = require("@prisma/client");
 const cors_1 = __importDefault(require("cors"));
@@ -117,6 +118,53 @@ const DATE_FIELDS = new Set([
     'expectedCloseDate', 'lastContactDate', 'nextActionDate', 'gatekeeperLastContacted',
 ]);
 const CRM_SECRET = process.env.CRM_API_SECRET;
+app.get('/api/deals/export', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!CRM_SECRET || !authHeader || authHeader !== `Bearer ${CRM_SECRET}`) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+    try {
+        const { stage, search } = req.query;
+        const where = {};
+        if (typeof stage === 'string' && stage.length > 0) {
+            const stages = stage.split(',').map(s => normalizeStage(s.trim()));
+            where.stage = { in: stages };
+        }
+        const deals = await prisma.deal.findMany({ where, orderBy: { updatedAt: 'desc' } });
+        let parsed = deals.map(parseTags);
+        if (typeof search === 'string' && search.length > 0) {
+            const q = search.toLowerCase();
+            parsed = parsed.filter((d) => (d.title || '').toLowerCase().includes(q) ||
+                (d.personName || '').toLowerCase().includes(q) ||
+                (d.companyName || '').toLowerCase().includes(q));
+        }
+        const stageCounts = {};
+        const allDeals = await prisma.deal.findMany();
+        allDeals.forEach(d => {
+            const s = normalizeStage(d.stage);
+            stageCounts[s] = (stageCounts[s] || 0) + 1;
+        });
+        const activePipeline = allDeals.filter(d => !['closed_won', 'closed_lost', 'nurture'].includes(normalizeStage(d.stage)));
+        const totalPipelineValue = activePipeline.reduce((sum, d) => sum + (d.expectedValue || 0), 0);
+        const proposalsOut = allDeals.filter(d => {
+            const s = normalizeStage(d.stage);
+            return s === 'proposal_sent' || s === 'verbal_yes';
+        }).length;
+        res.json({
+            totalDeals: allDeals.length,
+            returnedDeals: parsed.length,
+            proposalsOut,
+            totalPipelineValue,
+            stageCounts,
+            deals: parsed
+        });
+    }
+    catch (error) {
+        console.error('Error exporting deals:', error);
+        res.status(500).json({ error: 'Failed to export deals' });
+    }
+});
 app.post('/api/deals/batch-update', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!CRM_SECRET || !authHeader || authHeader !== `Bearer ${CRM_SECRET}`) {
