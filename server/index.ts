@@ -104,6 +104,107 @@ app.patch('/api/deals/:id/target', async (req, res) => {
   }
 });
 
+const MUTABLE_FIELDS = new Set([
+  'title', 'personName', 'companyName', 'stage', 'tags', 'priority',
+  'expectedValue', 'closeProbability', 'expectedCloseDate', 'lastContactDate',
+  'nextActionDate', 'nextAction', 'gatekeeperName', 'gatekeeperLastContacted',
+  'lossReason', 'isGatekept', 'isTargeted', 'notes',
+]);
+
+const DATE_FIELDS = new Set([
+  'expectedCloseDate', 'lastContactDate', 'nextActionDate', 'gatekeeperLastContacted',
+]);
+
+const CRM_SECRET = process.env.CRM_API_SECRET;
+
+app.post('/api/deals/batch-update', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!CRM_SECRET || !authHeader || authHeader !== `Bearer ${CRM_SECRET}`) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  const { updates } = req.body;
+  if (!Array.isArray(updates) || updates.length === 0 || updates.length > 25) {
+    res.status(400).json({ error: 'updates must be an array of 1-25 items' });
+    return;
+  }
+
+  const applied: { id: number; title: string; fieldsUpdated: string[] }[] = [];
+  const skipped: { match: any; reason: string }[] = [];
+  const ambiguous: { match: any; reason: string; count: number }[] = [];
+
+  for (const item of updates) {
+    if (!item.match || !item.set || typeof item.match !== 'object' || typeof item.set !== 'object') {
+      skipped.push({ match: item.match || null, reason: 'invalid_format' });
+      continue;
+    }
+
+    const invalidFields = Object.keys(item.set).filter(k => !MUTABLE_FIELDS.has(k));
+    if (invalidFields.length > 0) {
+      skipped.push({ match: item.match, reason: `unknown_fields: ${invalidFields.join(', ')}` });
+      continue;
+    }
+
+    let matches: any[];
+    try {
+      if (item.match.id !== undefined) {
+        const deal = await prisma.deal.findUnique({ where: { id: Number(item.match.id) } });
+        matches = deal ? [deal] : [];
+      } else if (item.match.title) {
+        matches = await prisma.deal.findMany({
+          where: { title: { contains: item.match.title } }
+        });
+      } else {
+        skipped.push({ match: item.match, reason: 'no_valid_match_key' });
+        continue;
+      }
+    } catch {
+      skipped.push({ match: item.match, reason: 'match_query_failed' });
+      continue;
+    }
+
+    if (matches.length === 0) {
+      skipped.push({ match: item.match, reason: 'no_match' });
+      continue;
+    }
+    if (matches.length > 1) {
+      ambiguous.push({ match: item.match, reason: 'multiple_matches', count: matches.length });
+      continue;
+    }
+
+    const deal = matches[0];
+    const updateData: any = {};
+    const fieldsUpdated: string[] = [];
+
+    for (const [key, value] of Object.entries(item.set)) {
+      if (DATE_FIELDS.has(key) && typeof value === 'string') {
+        updateData[key] = new Date(value);
+      } else if (key === 'tags' && Array.isArray(value)) {
+        updateData[key] = JSON.stringify(value);
+      } else if (key === 'stage' && typeof value === 'string') {
+        updateData[key] = normalizeStage(value);
+      } else {
+        updateData[key] = value;
+      }
+      fieldsUpdated.push(key);
+    }
+
+    if (updateData.stage && updateData.stage !== deal.stage) {
+      updateData.stageChangedAt = new Date();
+    }
+
+    try {
+      await prisma.deal.update({ where: { id: deal.id }, data: updateData });
+      applied.push({ id: deal.id, title: deal.title, fieldsUpdated });
+    } catch (err) {
+      skipped.push({ match: item.match, reason: 'update_failed' });
+    }
+  }
+
+  res.json({ success: true, applied, skipped, ambiguous });
+});
+
 app.delete('/api/deals/:id', async (req, res) => {
   const { id } = req.params;
   try {
