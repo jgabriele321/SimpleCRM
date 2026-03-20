@@ -1,0 +1,26 @@
+FROM node:20-slim
+
+# Install OpenSSL for Prisma
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json ./
+COPY prisma ./prisma/
+
+# Install dependencies + tsx for running TypeScript
+RUN npm install && npm install tsx
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Copy server code and types
+COPY server ./server/
+COPY types.ts ./
+
+EXPOSE 3001
+
+# Initialize DB and start server with tsx
+CMD npx prisma db push && npx tsx server/index.ts
