@@ -290,7 +290,7 @@ function App() {
             <div className="flex items-center space-x-4 flex-1 justify-end">
               <a
                 href="/people"
-                className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 border border-purple-200 transition-colors"
+                className="inline-flex items-center px-5 py-2.5 rounded-lg text-base font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors"
               >
                 People
               </a>
