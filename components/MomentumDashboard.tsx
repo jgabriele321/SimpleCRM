@@ -17,9 +17,6 @@ type FrictionItem = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const isSameMonth = (date: Date, reference: Date) =>
-  date.getFullYear() === reference.getFullYear() && date.getMonth() === reference.getMonth();
-
 const startOfWeekMonday = (reference: Date) => {
   const d = new Date(reference);
   const day = d.getDay();
@@ -74,6 +71,31 @@ const FUNNEL_STAGES: Stage[] = [
   'nurture'
 ];
 
+/** Stages that count as active pipeline / friction (excludes closed + nurture). */
+const ACTIVE_PIPELINE_STAGES: Stage[] = [
+  'signal',
+  'active_convo',
+  'ready_for_proposal',
+  'proposal_sent',
+  'verbal_yes'
+];
+
+const isActivePipelineStage = (stage: Stage) => ACTIVE_PIPELINE_STAGES.includes(stage);
+
+/** When the deal last changed stage (used for win/loss timing — do not fall back to updatedAt). */
+const stageChangedDate = (d: Deal) => toDate(d.stageChangedAt);
+
+/** True if the deal entered proposal_sent during [start, end] (uses proposalSentAt; legacy fallback if still in proposal_sent). */
+const enteredProposalSentInRange = (d: Deal, start: Date, end: Date) => {
+  const sentAt = toDate(d.proposalSentAt);
+  if (sentAt && isInRange(sentAt, start, end)) return true;
+  if (!d.proposalSentAt && d.stage === 'proposal_sent') {
+    const sc = stageChangedDate(d);
+    return !!sc && isInRange(sc, start, end);
+  }
+  return false;
+};
+
 export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onEditDeal }) => {
   const now = new Date();
   const weekStart = startOfWeekMonday(now);
@@ -86,7 +108,7 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
   trailing90Start.setDate(now.getDate() - 90);
 
   const dashboard = useMemo(() => {
-    const proposalsOut = deals.filter((d) => d.stage === 'proposal_sent' || d.stage === 'verbal_yes');
+    const proposalsOut = deals.filter((d) => d.stage === 'proposal_sent');
     const pipelineDeals = deals.filter((d) => !['closed_won', 'closed_lost', 'nurture'].includes(d.stage));
     const totalPipelineValue = pipelineDeals.reduce((sum, d) => sum + (d.expectedValue || 0), 0);
 
@@ -99,16 +121,11 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
 
     const conversationsThisWeek = deals.filter((d) => {
       const lastContact = toDate(d.lastContactDate);
-      const stageChanged = toDate(d.stageChangedAt);
+      const stageChanged = stageChangedDate(d);
       return isInRange(lastContact, weekStart, weekEnd) || isInRange(stageChanged, weekStart, weekEnd);
     }).length;
 
-    const proposalsThisMonth = deals.filter((d) => {
-      if (d.stage !== 'proposal_sent') return false;
-      const stageChanged = toDate(d.stageChangedAt);
-      const updated = toDate(d.updatedAt);
-      return isInRange(stageChanged, monthStart, monthEnd) || isInRange(updated, monthStart, monthEnd);
-    }).length;
+    const proposalsThisMonth = deals.filter((d) => enteredProposalSentInRange(d, monthStart, monthEnd)).length;
 
     const funnel = FUNNEL_STAGES.map((stage) => {
       const stageDeals = deals.filter((d) => d.stage === stage);
@@ -124,6 +141,7 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
     const maxFunnelCount = Math.max(...funnel.map((f) => f.count), 1);
 
     const frictionItems: FrictionItem[] = deals
+      .filter((deal) => isActivePipelineStage(deal.stage))
       .map((deal) => {
         const lastTouchDate = toDate(deal.lastContactDate);
         const staleDays = lastTouchDate ? Math.floor((now.getTime() - lastTouchDate.getTime()) / DAY_MS) : null;
@@ -152,37 +170,30 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
 
     const conversationsHeld = deals.filter((d) => isInRange(toDate(d.lastContactDate), weekStart, weekEnd)).length;
 
-    const proposalsSentWeek = deals.filter((d) => {
-      if (d.stage !== 'proposal_sent') return false;
-      const stageChanged = toDate(d.stageChangedAt);
-      const updated = toDate(d.updatedAt);
-      return isInRange(stageChanged, weekStart, weekEnd) || isInRange(updated, weekStart, weekEnd);
-    }).length;
+    const proposalsSentWeek = deals.filter((d) => enteredProposalSentInRange(d, weekStart, weekEnd)).length;
 
     const followUpsMade = deals.filter((d) => {
       const lastContact = toDate(d.lastContactDate);
-      const stageChanged = toDate(d.stageChangedAt);
+      const stageChanged = stageChangedDate(d);
       return isInRange(lastContact, weekStart, weekEnd) && !isInRange(stageChanged, weekStart, weekEnd);
     }).length;
 
     const dealsWonWeek = deals.filter((d) => {
       if (d.stage !== 'closed_won') return false;
-      const stageChanged = toDate(d.stageChangedAt);
-      const updated = toDate(d.updatedAt);
-      return isInRange(stageChanged, weekStart, weekEnd) || isInRange(updated, weekStart, weekEnd);
+      const closed = stageChangedDate(d);
+      return !!closed && isInRange(closed, weekStart, weekEnd);
     }).length;
 
     const dealsLostWeek = deals.filter((d) => {
       if (d.stage !== 'closed_lost') return false;
-      const stageChanged = toDate(d.stageChangedAt);
-      const updated = toDate(d.updatedAt);
-      return isInRange(stageChanged, weekStart, weekEnd) || isInRange(updated, weekStart, weekEnd);
+      const closed = stageChangedDate(d);
+      return !!closed && isInRange(closed, weekStart, weekEnd);
     }).length;
 
     const closedTrailing90 = deals.filter((d) => {
       if (d.stage !== 'closed_won' && d.stage !== 'closed_lost') return false;
-      const closeDate = toDate(d.stageChangedAt) ?? toDate(d.updatedAt);
-      return isInRange(closeDate, trailing90Start, now);
+      const closeDate = stageChangedDate(d);
+      return !!closeDate && isInRange(closeDate, trailing90Start, now);
     });
     const wonTrailing90 = closedTrailing90.filter((d) => d.stage === 'closed_won');
     const lostTrailing90 = closedTrailing90.filter((d) => d.stage === 'closed_lost');
@@ -196,18 +207,14 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
       wonTrailing90.length > 0
         ? wonTrailing90.reduce((sum, d) => {
             const createdAt = toDate(d.createdAt);
-            const closedAt = toDate(d.stageChangedAt) ?? toDate(d.updatedAt);
+            const closedAt = stageChangedDate(d);
             if (!createdAt || !closedAt) return sum;
             return sum + Math.max(0, Math.round((closedAt.getTime() - createdAt.getTime()) / DAY_MS));
           }, 0) / wonTrailing90.length
         : 0;
 
-    const lostThisMonthDeals = deals.filter((d) => {
-      if (d.stage !== 'closed_lost') return false;
-      const closedAt = toDate(d.stageChangedAt) ?? toDate(d.updatedAt);
-      return !!closedAt && isSameMonth(closedAt, now);
-    });
-    const lostThisMonthValue = lostThisMonthDeals.reduce((sum, d) => sum + (d.expectedValue || 0), 0);
+    const lostTrailing90Deals = lostTrailing90;
+    const lostTrailing90Value = lostTrailing90Deals.reduce((sum, d) => sum + (d.expectedValue || 0), 0);
 
     return {
       proposalsOutCount: proposalsOut.length,
@@ -228,8 +235,8 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
       closeRate,
       avgDealSize,
       avgTimeToCloseDays,
-      lostThisMonthDeals,
-      lostThisMonthValue
+      lostTrailing90Deals,
+      lostTrailing90Value
     };
   }, [deals, monthEnd, monthStart, next30, now, trailing90Start, weekEnd, weekStart]);
 
@@ -430,15 +437,15 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
             <p className="text-lg font-semibold">{Math.round(dashboard.avgTimeToCloseDays)}d</p>
           </div>
           <div className="rounded bg-slate-950 border border-slate-800 p-2">
-            <p className="text-slate-400">Deals Lost This Month</p>
+            <p className="text-slate-400">Deals Lost (90 Days)</p>
             <p className="text-lg font-semibold text-rose-300">
-              {dashboard.lostThisMonthDeals.length} · {formatCurrency(dashboard.lostThisMonthValue)}
+              {dashboard.lostTrailing90Deals.length} · {formatCurrency(dashboard.lostTrailing90Value)}
             </p>
           </div>
         </div>
-        {dashboard.lostThisMonthDeals.length > 0 && (
+        {dashboard.lostTrailing90Deals.length > 0 && (
           <div className="mt-2 text-xs text-slate-400 space-y-1">
-            {dashboard.lostThisMonthDeals.map((deal) => (
+            {dashboard.lostTrailing90Deals.map((deal) => (
               <div key={String(deal.id)} title={deal.lossReason || 'No loss reason'}>
                 {deal.title}: {deal.lossReason || 'No loss reason provided'}
               </div>

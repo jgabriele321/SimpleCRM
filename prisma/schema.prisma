@@ -24,6 +24,7 @@ model Deal {
   gatekeeperName    String?
   gatekeeperLastContacted DateTime?
   stageChangedAt    DateTime?
+  proposalSentAt    DateTime?
   lossReason        String?
   isGatekept        Boolean   @default(false)
   notes             String?

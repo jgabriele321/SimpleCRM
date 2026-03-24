@@ -63,7 +63,17 @@ export const DealForm: React.FC<DealFormProps> = ({ initialData, isOpen, onClose
     
     setIsSaving(true);
     try {
-      await onSave(formData);
+      let payload: Partial<Deal> = { ...formData };
+      if (initialData) {
+        const actionChanged = (formData.nextAction || '') !== (initialData.nextAction || '');
+        const dateUnchanged =
+          (formData.nextActionDate || '') === (initialData.nextActionDate || '');
+        if (actionChanged && dateUnchanged) {
+          // null clears the field on the server (undefined is omitted from JSON)
+          payload = { ...payload, nextActionDate: null as unknown as string | undefined };
+        }
+      }
+      await onSave(payload);
       onClose();
     } catch (error) {
       console.error(error);

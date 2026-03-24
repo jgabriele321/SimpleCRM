@@ -27,6 +27,8 @@ export interface Deal {
   gatekeeperName?: string;
   gatekeeperLastContacted?: string; // ISO date string
   stageChangedAt?: string; // ISO date string
+  /** Set when deal transitions into proposal_sent (persists after leaving the stage). */
+  proposalSentAt?: string;
   lossReason?: string;
   isGatekept?: boolean;
   notes?: string;
