@@ -120,9 +120,9 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
       .reduce((sum, d) => sum + ((d.expectedValue || 0) * (d.closeProbability || 0)) / 100, 0);
 
     const conversationsThisWeek = deals.filter((d) => {
+      if (!isActivePipelineStage(d.stage)) return false;
       const lastContact = toDate(d.lastContactDate);
-      const stageChanged = stageChangedDate(d);
-      return isInRange(lastContact, weekStart, weekEnd) || isInRange(stageChanged, weekStart, weekEnd);
+      return isInRange(lastContact, weekStart, weekEnd);
     }).length;
 
     const proposalsThisMonth = deals.filter((d) => enteredProposalSentInRange(d, monthStart, monthEnd)).length;
@@ -168,7 +168,10 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
       .filter((item): item is FrictionItem => item !== null)
       .sort((a, b) => b.urgency - a.urgency);
 
-    const conversationsHeld = deals.filter((d) => isInRange(toDate(d.lastContactDate), weekStart, weekEnd)).length;
+    const conversationsHeld = deals.filter((d) => {
+      if (!isActivePipelineStage(d.stage)) return false;
+      return isInRange(toDate(d.lastContactDate), weekStart, weekEnd);
+    }).length;
 
     const proposalsSentWeek = deals.filter((d) => enteredProposalSentInRange(d, weekStart, weekEnd)).length;
 
