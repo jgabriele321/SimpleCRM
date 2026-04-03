@@ -108,24 +108,25 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
   trailing90Start.setDate(now.getDate() - 90);
 
   const dashboard = useMemo(() => {
-    const proposalsOut = deals.filter((d) => d.stage === 'proposal_sent');
+    const proposalsOutDeals = deals.filter((d) => d.stage === 'proposal_sent');
     const pipelineDeals = deals.filter((d) => !['closed_won', 'closed_lost', 'nurture'].includes(d.stage));
     const totalPipelineValue = pipelineDeals.reduce((sum, d) => sum + (d.expectedValue || 0), 0);
 
-    const expectedRevenue30 = deals
-      .filter((d) => {
-        const closeDate = toDate(d.expectedCloseDate);
-        return isInRange(closeDate, now, next30);
-      })
-      .reduce((sum, d) => sum + ((d.expectedValue || 0) * (d.closeProbability || 0)) / 100, 0);
+    const expectedRevenue30Deals = deals.filter((d) => {
+      const closeDate = toDate(d.expectedCloseDate);
+      return isInRange(closeDate, now, next30);
+    });
+    const expectedRevenue30 = expectedRevenue30Deals.reduce(
+      (sum, d) => sum + ((d.expectedValue || 0) * (d.closeProbability || 0)) / 100, 0
+    );
 
-    const conversationsThisWeek = deals.filter((d) => {
+    const conversationsThisWeekDeals = deals.filter((d) => {
       if (!isActivePipelineStage(d.stage)) return false;
       const lastContact = toDate(d.lastContactDate);
       return isInRange(lastContact, weekStart, weekEnd);
-    }).length;
+    });
 
-    const proposalsThisMonth = deals.filter((d) => enteredProposalSentInRange(d, monthStart, monthEnd)).length;
+    const proposalsThisMonthDeals = deals.filter((d) => enteredProposalSentInRange(d, monthStart, monthEnd));
 
     const funnel = FUNNEL_STAGES.map((stage) => {
       const stageDeals = deals.filter((d) => d.stage === stage);
@@ -221,26 +222,27 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
 
     const trailing30Start = new Date(now);
     trailing30Start.setDate(now.getDate() - 30);
-    const closesLast30 = deals.filter((d) => {
+    const closesLast30Deals = deals.filter((d) => {
       if (d.stage !== 'closed_won') return false;
       const closed = stageChangedDate(d);
       return !!closed && isInRange(closed, trailing30Start, now);
-    }).length;
+    });
 
-    const discoveryCallsThisWeek = deals.filter((d) => {
+    const discoveryCallsThisWeekDeals = deals.filter((d) => {
       if (d.stage !== 'active_convo') return false;
       const lastContact = toDate(d.lastContactDate);
       return isInRange(lastContact, weekStart, weekEnd);
-    }).length;
+    });
 
     return {
-      proposalsOutCount: proposalsOut.length,
+      proposalsOutDeals,
       totalPipelineValue,
       expectedRevenue30,
-      conversationsThisWeek,
-      proposalsThisMonth,
-      closesLast30,
-      discoveryCallsThisWeek,
+      expectedRevenue30Deals,
+      conversationsThisWeekDeals,
+      proposalsThisMonthDeals,
+      closesLast30Deals,
+      discoveryCallsThisWeekDeals,
       funnel,
       wonCount,
       lostCount,
@@ -260,30 +262,30 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
   }, [deals, monthEnd, monthStart, next30, now, trailing90Start, weekEnd, weekStart]);
 
   const proposalsColor =
-    dashboard.proposalsOutCount >= 5
+    dashboard.proposalsOutDeals.length >= 5
       ? METRIC_GREEN
-      : dashboard.proposalsOutCount >= 3
+      : dashboard.proposalsOutDeals.length >= 3
         ? METRIC_YELLOW
         : METRIC_RED;
 
   const convoColor =
-    dashboard.conversationsThisWeek >= 5
+    dashboard.conversationsThisWeekDeals.length >= 5
       ? METRIC_GREEN
-      : dashboard.conversationsThisWeek >= 3
+      : dashboard.conversationsThisWeekDeals.length >= 3
         ? METRIC_YELLOW
         : METRIC_RED;
 
   const closesColor =
-    dashboard.closesLast30 >= 3
+    dashboard.closesLast30Deals.length >= 3
       ? METRIC_GREEN
-      : dashboard.closesLast30 === 2
+      : dashboard.closesLast30Deals.length === 2
         ? METRIC_YELLOW
         : METRIC_RED;
 
   const discoveryColor =
-    dashboard.discoveryCallsThisWeek >= 3
+    dashboard.discoveryCallsThisWeekDeals.length >= 3
       ? METRIC_GREEN
-      : dashboard.discoveryCallsThisWeek === 2
+      : dashboard.discoveryCallsThisWeekDeals.length === 2
         ? METRIC_YELLOW
         : METRIC_RED;
 
@@ -300,33 +302,108 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
       </div>
 
       <section className="grid grid-cols-2 xl:grid-cols-5 gap-3">
-        <div className="rounded-xl bg-slate-900 border border-slate-800 p-3">
+        <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3">
           <p className="text-[11px] uppercase tracking-wider text-slate-400">Proposals Out Now</p>
-          <p className={`text-2xl font-bold ${proposalsColor}`}>{dashboard.proposalsOutCount} / 6</p>
+          <p className={`text-2xl font-bold ${proposalsColor}`}>{dashboard.proposalsOutDeals.length} / 6</p>
+          {dashboard.proposalsOutDeals.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
+              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
+                {dashboard.proposalsOutDeals.map((d) => (
+                  <div key={String(d.id)} className="text-xs py-0.5">
+                    <span className="text-slate-100">{d.title}</span>
+                    <span className="text-slate-400 ml-1">{formatCurrency(d.expectedValue || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-        <div className="rounded-xl bg-slate-900 border border-slate-800 p-3">
+        <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3">
           <p className="text-[11px] uppercase tracking-wider text-slate-400">Closes Last 30 Days</p>
-          <p className={`text-2xl font-bold ${closesColor}`}>{dashboard.closesLast30} / 3</p>
+          <p className={`text-2xl font-bold ${closesColor}`}>{dashboard.closesLast30Deals.length} / 3</p>
+          {dashboard.closesLast30Deals.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
+              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
+                {dashboard.closesLast30Deals.map((d) => (
+                  <div key={String(d.id)} className="text-xs py-0.5">
+                    <span className="text-slate-100">{d.title}</span>
+                    <span className="text-slate-400 ml-1">{formatCurrency(d.expectedValue || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-        <div className="rounded-xl bg-slate-900 border border-slate-800 p-3">
+        <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3">
           <p className="text-[11px] uppercase tracking-wider text-slate-400">Discovery Calls This Week</p>
-          <p className={`text-2xl font-bold ${discoveryColor}`}>{dashboard.discoveryCallsThisWeek} / 3</p>
+          <p className={`text-2xl font-bold ${discoveryColor}`}>{dashboard.discoveryCallsThisWeekDeals.length} / 3</p>
+          {dashboard.discoveryCallsThisWeekDeals.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
+              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
+                {dashboard.discoveryCallsThisWeekDeals.map((d) => (
+                  <div key={String(d.id)} className="text-xs py-0.5 text-slate-100">
+                    {d.personName || d.title}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="rounded-xl bg-slate-900 border border-slate-800 p-3">
           <p className="text-[11px] uppercase tracking-wider text-slate-400">Total Pipeline Value</p>
           <p className={`text-2xl font-bold ${METRIC_NEUTRAL}`}>{formatCurrency(dashboard.totalPipelineValue)}</p>
         </div>
-        <div className="rounded-xl bg-slate-900 border border-slate-800 p-3">
+        <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3">
           <p className="text-[11px] uppercase tracking-wider text-slate-400">Conversations This Week</p>
-          <p className={`text-2xl font-bold ${convoColor}`}>{dashboard.conversationsThisWeek}</p>
+          <p className={`text-2xl font-bold ${convoColor}`}>{dashboard.conversationsThisWeekDeals.length}</p>
+          {dashboard.conversationsThisWeekDeals.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
+              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
+                {dashboard.conversationsThisWeekDeals.map((d) => (
+                  <div key={String(d.id)} className="text-xs py-0.5 text-slate-100">
+                    {d.personName || d.title}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-        <div className="rounded-xl bg-slate-900 border border-slate-800 p-3">
+        <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3">
           <p className="text-[11px] uppercase tracking-wider text-slate-400">Expected Revenue (30 Days)</p>
           <p className={`text-2xl font-bold ${METRIC_NEUTRAL}`}>{formatCurrency(dashboard.expectedRevenue30)}</p>
+          {dashboard.expectedRevenue30Deals.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
+              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
+                {dashboard.expectedRevenue30Deals.map((d) => {
+                  const weighted = ((d.expectedValue || 0) * (d.closeProbability || 0)) / 100;
+                  return (
+                    <div key={String(d.id)} className="text-xs py-0.5">
+                      <span className="text-slate-100">{d.title}</span>
+                      <span className="text-slate-400 ml-1">
+                        {formatCurrency(d.expectedValue || 0)} × {d.closeProbability || 0}% = {formatCurrency(weighted)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
-        <div className="rounded-xl bg-slate-900 border border-slate-800 p-3 col-span-2 xl:col-span-1">
+        <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3 col-span-2 xl:col-span-1">
           <p className="text-[11px] uppercase tracking-wider text-slate-400">Proposals Sent This Month</p>
-          <p className={`text-2xl font-bold ${METRIC_NEUTRAL}`}>{dashboard.proposalsThisMonth}</p>
+          <p className={`text-2xl font-bold ${METRIC_NEUTRAL}`}>{dashboard.proposalsThisMonthDeals.length}</p>
+          {dashboard.proposalsThisMonthDeals.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
+              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
+                {dashboard.proposalsThisMonthDeals.map((d) => (
+                  <div key={String(d.id)} className="text-xs py-0.5">
+                    <span className="text-slate-100">{d.title}</span>
+                    <span className="text-slate-400 ml-1">{formatCurrency(d.expectedValue || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
