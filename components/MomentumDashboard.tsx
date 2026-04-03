@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Deal, STAGE_COLORS, STAGE_LABELS, Stage } from '../types';
+import { Deal, STAGE_LABELS, Stage } from '../types';
 
 interface MomentumDashboardProps {
   deals: Deal[];
@@ -57,10 +57,24 @@ const formatDate = (value?: string) => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const METRIC_NEUTRAL = 'text-slate-800';
 const METRIC_GREEN = 'text-emerald-600';
-const METRIC_YELLOW = 'text-amber-500';
-const METRIC_RED = 'text-rose-500';
+const METRIC_YELLOW = 'text-amber-600';
+const METRIC_RED = 'text-rose-600';
+
+const CARD_BG_GREEN = 'bg-emerald-50 border-emerald-200';
+const CARD_BG_YELLOW = 'bg-amber-50 border-amber-200';
+const CARD_BG_RED = 'bg-rose-50 border-rose-200';
+
+const FUNNEL_BAR_COLORS: Record<Stage, string> = {
+  signal: 'bg-slate-400',
+  active_convo: 'bg-cyan-500',
+  ready_for_proposal: 'bg-violet-500',
+  proposal_sent: 'bg-purple-500',
+  verbal_yes: 'bg-lime-500',
+  closed_won: 'bg-emerald-500',
+  closed_lost: 'bg-rose-500',
+  nurture: 'bg-amber-400',
+};
 
 const FUNNEL_STAGES: Stage[] = [
   'signal',
@@ -280,33 +294,20 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
     };
   }, [deals, monthEnd, monthStart, next30, now, trailing90Start, weekEnd, weekStart]);
 
-  const proposalsColor =
-    dashboard.proposalsOutDeals.length >= 5
-      ? METRIC_GREEN
-      : dashboard.proposalsOutDeals.length >= 3
-        ? METRIC_YELLOW
-        : METRIC_RED;
+  const pickColor = (value: number, greenAt: number, yellowAt: number) =>
+    value >= greenAt ? { text: METRIC_GREEN, card: CARD_BG_GREEN } :
+    value >= yellowAt ? { text: METRIC_YELLOW, card: CARD_BG_YELLOW } :
+    { text: METRIC_RED, card: CARD_BG_RED };
 
-  const convoColor =
-    dashboard.conversationsThisWeekDeals.length >= 5
-      ? METRIC_GREEN
-      : dashboard.conversationsThisWeekDeals.length >= 3
-        ? METRIC_YELLOW
-        : METRIC_RED;
+  const proposalsStyle = pickColor(dashboard.proposalsOutDeals.length, 5, 3);
+  const closesStyle = pickColor(dashboard.closesLast30Deals.length, 3, 2);
+  const convosStyle = pickColor(dashboard.meaningfulConvosThisWeekDeals.length, 3, 2);
+  const touchesStyle = pickColor(dashboard.conversationsThisWeekDeals.length, 5, 3);
 
-  const closesColor =
-    dashboard.closesLast30Deals.length >= 3
-      ? METRIC_GREEN
-      : dashboard.closesLast30Deals.length === 2
-        ? METRIC_YELLOW
-        : METRIC_RED;
-
-  const meaningfulConvosColor =
-    dashboard.meaningfulConvosThisWeekDeals.length >= 3
-      ? METRIC_GREEN
-      : dashboard.meaningfulConvosThisWeekDeals.length === 2
-        ? METRIC_YELLOW
-        : METRIC_RED;
+  const [frictionExpanded, setFrictionExpanded] = React.useState(false);
+  const FRICTION_CAP = 6;
+  const visibleFriction = frictionExpanded ? dashboard.frictionItems : dashboard.frictionItems.slice(0, FRICTION_CAP);
+  const hasHiddenFriction = dashboard.frictionItems.length > FRICTION_CAP;
 
   const Tooltip: React.FC<{ items: { id: string | number; line: React.ReactNode }[] }> = ({ items }) =>
     items.length > 0 ? (
@@ -318,157 +319,160 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
     ) : null;
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-baseline justify-between">
-        <p className="text-xs text-slate-400">
-          Week of {weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-        </p>
-        <p className="text-xs text-slate-400">Won {dashboard.wonCount} · Lost {dashboard.lostCount}</p>
-      </div>
-
-      {/* Target metrics */}
-      <section className="grid grid-cols-3 gap-4">
-        <div className="relative group">
-          <p className="text-xs text-slate-500">Proposals Out</p>
-          <p className={`text-3xl font-bold tabular-nums ${proposalsColor}`}>{dashboard.proposalsOutDeals.length}<span className="text-base font-normal text-slate-400"> / 6</span></p>
-          <Tooltip items={dashboard.proposalsOutDeals.map(d => ({ id: d.id, line: <>{d.title} <span className="text-slate-400">{formatCurrency(d.expectedValue || 0)}</span></> }))} />
-        </div>
-        <div className="relative group">
-          <p className="text-xs text-slate-500">Closes (30d)</p>
-          <p className={`text-3xl font-bold tabular-nums ${closesColor}`}>{dashboard.closesLast30Deals.length}<span className="text-base font-normal text-slate-400"> / 3</span></p>
-          <Tooltip items={dashboard.closesLast30Deals.map(d => ({ id: d.id, line: <>{d.title} <span className="text-slate-400">{formatCurrency(d.expectedValue || 0)}</span></> }))} />
-        </div>
-        <div className="relative group">
-          <p className="text-xs text-slate-500">Meaningful Convos</p>
-          <p className={`text-3xl font-bold tabular-nums ${meaningfulConvosColor}`}>{dashboard.meaningfulConvosThisWeekDeals.length}<span className="text-base font-normal text-slate-400"> / 3</span></p>
-          <Tooltip items={dashboard.meaningfulConvosThisWeekDeals.map(d => ({ id: d.id, line: <>{d.personName || d.title}</> }))} />
-        </div>
+    <div className="space-y-4">
+      {/* ── Target metrics ── */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[
+          { label: 'Proposals Out', value: dashboard.proposalsOutDeals.length, target: 6, style: proposalsStyle,
+            tooltip: dashboard.proposalsOutDeals.map(d => ({ id: d.id, line: <>{d.title} <span className="text-slate-400">{formatCurrency(d.expectedValue || 0)}</span></> })) },
+          { label: 'Closes (30d)', value: dashboard.closesLast30Deals.length, target: 3, style: closesStyle,
+            tooltip: dashboard.closesLast30Deals.map(d => ({ id: d.id, line: <>{d.title} <span className="text-slate-400">{formatCurrency(d.expectedValue || 0)}</span></> })) },
+          { label: 'Meaningful Convos', value: dashboard.meaningfulConvosThisWeekDeals.length, target: 3, style: convosStyle,
+            tooltip: dashboard.meaningfulConvosThisWeekDeals.map(d => ({ id: d.id, line: <>{d.personName || d.title}</> })) },
+        ].map((m) => (
+          <div key={m.label} className={`relative group rounded-lg border p-3 ${m.style.card}`}>
+            <p className="text-xs font-medium text-slate-500">{m.label}</p>
+            <p className={`text-3xl font-bold tabular-nums leading-tight ${m.style.text}`}>
+              {m.value}<span className="text-lg font-normal text-slate-400">/{m.target}</span>
+            </p>
+            <Tooltip items={m.tooltip} />
+          </div>
+        ))}
       </section>
 
-      {/* Supporting stats — compact row */}
-      <section className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-        <div className="relative group">
-          <span className="text-slate-400">Pipeline </span><span className="font-semibold text-slate-800">{formatCurrency(dashboard.totalPipelineValue)}</span>
-        </div>
-        <div className="relative group">
-          <span className="text-slate-400">Expected (30d) </span><span className="font-semibold text-slate-800">{formatCurrency(dashboard.expectedRevenue30)}</span>
+      {/* ── Supporting stats ── */}
+      <section className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+        <span className="text-slate-500">Pipeline <span className="font-semibold text-slate-800">{formatCurrency(dashboard.totalPipelineValue)}</span></span>
+        <span className="text-slate-300">|</span>
+        <span className="relative group text-slate-500">Expected (30d) <span className="font-semibold text-slate-800">{formatCurrency(dashboard.expectedRevenue30)}</span>
           <Tooltip items={dashboard.expectedRevenue30Deals.map(d => {
             const w = ((d.expectedValue || 0) * (d.closeProbability || 0)) / 100;
-            return { id: d.id, line: <>{d.title} <span className="text-slate-400">{formatCurrency(d.expectedValue||0)}×{d.closeProbability||0}%={formatCurrency(w)}</span></> };
+            return { id: d.id, line: <>{d.title} <span className="text-slate-400">{formatCurrency(d.expectedValue||0)}*{d.closeProbability||0}%={formatCurrency(w)}</span></> };
           })} />
-        </div>
-        <div className="relative group">
-          <span className="text-slate-400">Conversations </span><span className={`font-semibold ${convoColor}`}>{dashboard.conversationsThisWeekDeals.length}</span>
+        </span>
+        <span className="text-slate-300">|</span>
+        <span className="relative group text-slate-500">Conversations <span className={`font-semibold ${touchesStyle.text}`}>{dashboard.conversationsThisWeekDeals.length}</span>
           <Tooltip items={dashboard.conversationsThisWeekDeals.map(d => ({ id: d.id, line: <>{d.personName || d.title}</> }))} />
-        </div>
-        <div className="relative group">
-          <span className="text-slate-400">Proposals sent </span><span className="font-semibold text-slate-800">{dashboard.proposalsThisMonthDeals.length}</span>
+        </span>
+        <span className="text-slate-300">|</span>
+        <span className="relative group text-slate-500">Proposals sent <span className="font-semibold text-slate-800">{dashboard.proposalsThisMonthDeals.length}</span>
           <Tooltip items={dashboard.proposalsThisMonthDeals.map(d => ({ id: d.id, line: <>{d.title} <span className="text-slate-400">{formatCurrency(d.expectedValue || 0)}</span></> }))} />
-        </div>
+        </span>
+        <span className="ml-auto text-xs text-slate-400">Won {dashboard.wonCount} · Lost {dashboard.lostCount}</span>
       </section>
 
-      {/* Funnel */}
+      {/* ── Funnel ── */}
       <section>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           {dashboard.funnel.map((item) => {
-            const width = Math.max(6, (item.count / dashboard.maxFunnelCount) * 100);
-            const barColor = STAGE_COLORS[item.stage].split(' ')[0];
+            const pct = Math.max(4, (item.count / dashboard.maxFunnelCount) * 100);
             return (
               <div key={item.stage} className="flex items-center gap-2 text-xs">
-                <div className="w-28 shrink-0 text-slate-500 text-right">{STAGE_LABELS[item.stage]}</div>
-                <div className="flex-1 h-5 rounded bg-slate-100 overflow-hidden">
-                  <div className={`h-full rounded ${barColor}`} style={{ width: `${width}%` }} />
+                <div className="w-24 shrink-0 text-right text-slate-500 truncate">{STAGE_LABELS[item.stage]}</div>
+                <div className="flex-1 h-5 rounded-sm bg-slate-100 overflow-hidden">
+                  <div className={`h-full rounded-sm ${FUNNEL_BAR_COLORS[item.stage]}`} style={{ width: `${pct}%` }} />
                 </div>
-                <div className="w-10 text-right text-slate-600 font-medium">{item.count}</div>
-                <div className="w-16 text-right text-slate-400">{formatCurrency(item.value)}</div>
+                <div className="w-6 text-right tabular-nums font-medium text-slate-700">{item.count}</div>
+                <div className="w-14 text-right tabular-nums text-slate-400">{formatCurrency(item.value)}</div>
               </div>
             );
           })}
         </div>
       </section>
 
-      {/* Friction Tracker */}
-      <section>
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Needs Attention</h3>
-        <div className="hidden md:block">
-          <table className="w-full text-xs">
-            <thead className="text-slate-400 border-b border-slate-200">
-              <tr>
-                <th className="py-1.5 text-left font-medium">Deal</th>
-                <th className="py-1.5 text-left font-medium">Value</th>
-                <th className="py-1.5 text-left font-medium">Stale</th>
-                <th className="py-1.5 text-left font-medium">Next Action</th>
-                <th className="py-1.5 text-left font-medium">Due</th>
-                <th className="py-1.5 text-left font-medium">Gatekeeper</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dashboard.frictionItems.map((item) => {
-                const rowBg = item.staleSeverity === 'red'
-                  ? 'bg-rose-50'
-                  : item.staleSeverity === 'yellow'
-                    ? 'bg-amber-50/60'
-                    : '';
-                return (
-                  <tr
-                    key={String(item.deal.id)}
-                    onClick={() => onEditDeal(item.deal)}
-                    className={`border-b border-slate-100 hover:bg-slate-50 cursor-pointer ${rowBg}`}
-                  >
-                    <td className="py-1.5">
-                      <div className="font-medium text-slate-800">{item.deal.title}</div>
-                      <div className="text-slate-400">{[item.deal.personName, item.deal.companyName].filter(Boolean).join(' · ') || '-'}</div>
-                    </td>
-                    <td className="py-1.5 text-slate-700">{formatCurrency(item.deal.expectedValue || 0)}</td>
-                    <td className="py-1.5">
-                      <span className={item.staleSeverity === 'red' ? 'text-rose-600 font-semibold' : item.staleSeverity === 'yellow' ? 'text-amber-600' : 'text-slate-500'}>
-                        {item.staleDays === null ? '-' : `${item.staleDays}d`}
-                      </span>
-                    </td>
-                    <td className="py-1.5 text-slate-600 max-w-[200px] truncate">{item.deal.nextAction || '-'}</td>
-                    <td className={`py-1.5 ${item.overdueNextAction ? 'text-rose-600 font-semibold' : 'text-slate-400'}`}>
-                      {formatDate(item.deal.nextActionDate)}
-                    </td>
-                    <td className="py-1.5 text-slate-500">
-                      {item.gatekept ? `${item.deal.gatekeeperName || 'Gatekept'}` : '-'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {dashboard.frictionItems.length === 0 && <p className="text-xs text-slate-400 py-2">No friction flags.</p>}
-        </div>
+      {/* ── Friction Tracker ── */}
+      {(dashboard.frictionItems.length > 0 || true) && (
+        <section>
+          <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Needs Attention</h3>
 
-        <div className="md:hidden space-y-1.5">
-          {dashboard.frictionItems.map((item) => {
-            const bg = item.staleSeverity === 'red' ? 'bg-rose-50 border-rose-200' : item.staleSeverity === 'yellow' ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200';
-            return (
-              <button key={String(item.deal.id)} type="button" onClick={() => onEditDeal(item.deal)} className={`w-full text-left rounded border p-2.5 text-xs ${bg}`}>
-                <div className="flex justify-between"><span className="font-medium text-slate-800">{item.deal.title}</span><span className="text-slate-500">{formatCurrency(item.deal.expectedValue || 0)}</span></div>
-                <div className="text-slate-400 mt-0.5">{item.deal.nextAction || '-'}{item.deal.nextActionDate ? ` · ${formatDate(item.deal.nextActionDate)}` : ''}</div>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-400">
+                  <th className="py-1 text-left font-medium">Deal</th>
+                  <th className="py-1 text-right font-medium w-20">Value</th>
+                  <th className="py-1 text-right font-medium w-12">Stale</th>
+                  <th className="py-1 text-left font-medium pl-3">Next Action</th>
+                  <th className="py-1 text-left font-medium w-16">Due</th>
+                  <th className="py-1 text-left font-medium w-24">Gatekeeper</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleFriction.map((item) => {
+                  const rowBg = item.staleSeverity === 'red' ? 'bg-rose-50' : item.staleSeverity === 'yellow' ? 'bg-amber-50/50' : '';
+                  return (
+                    <tr key={String(item.deal.id)} onClick={() => onEditDeal(item.deal)} className={`border-b border-slate-100 cursor-pointer hover:bg-slate-50 ${rowBg}`}>
+                      <td className="py-1.5">
+                        <span className="font-medium text-slate-800">{item.deal.title}</span>
+                        <span className="text-slate-400 ml-1">{[item.deal.personName, item.deal.companyName].filter(Boolean).join(' · ')}</span>
+                      </td>
+                      <td className="py-1.5 text-right text-slate-600 tabular-nums">{formatCurrency(item.deal.expectedValue || 0)}</td>
+                      <td className="py-1.5 text-right">
+                        <span className={item.staleSeverity === 'red' ? 'text-rose-600 font-semibold' : item.staleSeverity === 'yellow' ? 'text-amber-600 font-medium' : 'text-slate-400'}>
+                          {item.staleDays === null ? '-' : `${item.staleDays}d`}
+                        </span>
+                      </td>
+                      <td className="py-1.5 pl-3 text-slate-600 max-w-[220px] truncate">{item.deal.nextAction || '-'}</td>
+                      <td className={`py-1.5 ${item.overdueNextAction ? 'text-rose-600 font-semibold' : 'text-slate-400'}`}>{formatDate(item.deal.nextActionDate)}</td>
+                      <td className="py-1.5 text-slate-400">{item.gatekept ? item.deal.gatekeeperName || 'Yes' : '-'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {hasHiddenFriction && !frictionExpanded && (
+              <button type="button" onClick={() => setFrictionExpanded(true)} className="text-xs text-indigo-600 hover:text-indigo-800 mt-1">
+                Show all {dashboard.frictionItems.length} items
               </button>
-            );
-          })}
-          {dashboard.frictionItems.length === 0 && <p className="text-xs text-slate-400">No friction flags.</p>}
-        </div>
-      </section>
+            )}
+            {frictionExpanded && hasHiddenFriction && (
+              <button type="button" onClick={() => setFrictionExpanded(false)} className="text-xs text-indigo-600 hover:text-indigo-800 mt-1">
+                Show less
+              </button>
+            )}
+            {dashboard.frictionItems.length === 0 && <p className="text-xs text-slate-400 py-2">No friction flags right now.</p>}
+          </div>
 
-      {/* Weekly + Trailing — compact inline */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-1.5">
+            {visibleFriction.map((item) => {
+              const bg = item.staleSeverity === 'red' ? 'bg-rose-50 border-rose-200' : item.staleSeverity === 'yellow' ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200';
+              return (
+                <button key={String(item.deal.id)} type="button" onClick={() => onEditDeal(item.deal)} className={`w-full text-left rounded border p-2 text-xs ${bg}`}>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-slate-800">{item.deal.title}</span>
+                    <span className="text-slate-500">{formatCurrency(item.deal.expectedValue || 0)}</span>
+                  </div>
+                  <div className="text-slate-400 mt-0.5">{item.deal.nextAction || '-'}{item.deal.nextActionDate ? ` · ${formatDate(item.deal.nextActionDate)}` : ''}</div>
+                </button>
+              );
+            })}
+            {hasHiddenFriction && !frictionExpanded && (
+              <button type="button" onClick={() => setFrictionExpanded(true)} className="text-xs text-indigo-600">
+                Show all {dashboard.frictionItems.length}
+              </button>
+            )}
+            {dashboard.frictionItems.length === 0 && <p className="text-xs text-slate-400">No friction flags.</p>}
+          </div>
+        </section>
+      )}
+
+      {/* ── Weekly + Trailing ── */}
+      <section className="border-t border-slate-200 pt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-600">
         <div>
-          <h3 className="font-semibold text-slate-500 uppercase tracking-wide mb-1.5">This Week</h3>
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-slate-600">
+          <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">This Week</h3>
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5">
             <span>Conversations <b>{dashboard.conversationsHeld}</b></span>
-            <span>Proposals sent <b>{dashboard.proposalsSentWeek}</b></span>
+            <span>Proposals <b>{dashboard.proposalsSentWeek}</b></span>
             <span>Follow-ups <b>{dashboard.followUpsMade}</b></span>
             <span>Won <b className="text-emerald-600">{dashboard.dealsWonWeek}</b></span>
             <span>Lost <b className="text-rose-500">{dashboard.dealsLostWeek}</b></span>
           </div>
         </div>
         <div>
-          <h3 className="font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Trailing 90 Days</h3>
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-slate-600">
+          <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Trailing 90 Days</h3>
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5">
             <span>Close rate <b>{dashboard.closeRate.toFixed(0)}%</b></span>
             <span>Avg size <b>{formatCurrency(dashboard.avgDealSize)}</b></span>
             <span>Avg close <b>{Math.round(dashboard.avgTimeToCloseDays)}d</b></span>

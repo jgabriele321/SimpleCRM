@@ -58,6 +58,15 @@ app.get('/api/deals', async (req, res) => {
 app.post('/api/deals', async (req, res) => {
     try {
         const data = serializeTags(req.body);
+        delete data.id;
+        delete data.createdAt;
+        delete data.updatedAt;
+        delete data.proposalSentAt;
+        delete data.stageChangedAt;
+        const st = normalizeStage(data.stage);
+        if (st === 'proposal_sent') {
+            data.proposalSentAt = new Date();
+        }
         const deal = await prisma.deal.create({ data });
         res.json(parseTags(deal));
     }
@@ -77,8 +86,14 @@ app.put('/api/deals/:id', async (req, res) => {
         }
         const data = serializeTags(req.body);
         delete data.stageChangedAt;
+        delete data.proposalSentAt;
+        const newStage = normalizeStage(typeof req.body.stage === 'string' ? req.body.stage : currentDeal.stage);
+        const oldStage = normalizeStage(currentDeal.stage);
         if (typeof req.body.stage === 'string' && req.body.stage !== currentDeal.stage) {
             data.stageChangedAt = new Date();
+        }
+        if (newStage === 'proposal_sent' && oldStage !== 'proposal_sent') {
+            data.proposalSentAt = new Date();
         }
         const deal = await prisma.deal.update({
             where: { id: Number(id) },
@@ -147,10 +162,7 @@ app.get('/api/deals/export', async (req, res) => {
         });
         const activePipeline = allDeals.filter(d => !['closed_won', 'closed_lost', 'nurture'].includes(normalizeStage(d.stage)));
         const totalPipelineValue = activePipeline.reduce((sum, d) => sum + (d.expectedValue || 0), 0);
-        const proposalsOut = allDeals.filter(d => {
-            const s = normalizeStage(d.stage);
-            return s === 'proposal_sent' || s === 'verbal_yes';
-        }).length;
+        const proposalsOut = allDeals.filter(d => normalizeStage(d.stage) === 'proposal_sent').length;
         res.json({
             totalDeals: allDeals.length,
             returnedDeals: parsed.length,
@@ -237,6 +249,11 @@ app.post('/api/deals/batch-update', async (req, res) => {
         }
         if (updateData.stage && updateData.stage !== deal.stage) {
             updateData.stageChangedAt = new Date();
+        }
+        const newSt = updateData.stage ? normalizeStage(updateData.stage) : normalizeStage(deal.stage);
+        const oldSt = normalizeStage(deal.stage);
+        if (newSt === 'proposal_sent' && oldSt !== 'proposal_sent') {
+            updateData.proposalSentAt = new Date();
         }
         try {
             await prisma.deal.update({ where: { id: deal.id }, data: updateData });
