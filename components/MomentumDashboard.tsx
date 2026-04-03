@@ -85,6 +85,17 @@ const FUNNEL_STAGES: Stage[] = [
   'nurture'
 ];
 
+const FUNNEL_SHORT_LABELS: Record<Stage, string> = {
+  signal: 'Signal',
+  active_convo: 'Active',
+  ready_for_proposal: 'Ready',
+  proposal_sent: 'Proposal',
+  verbal_yes: 'Verbal Yes',
+  closed_won: 'Won',
+  closed_lost: 'Lost',
+  nurture: 'Nurture',
+};
+
 /** Stages that count as active pipeline / friction (excludes closed + nurture). */
 const ACTIVE_PIPELINE_STAGES: Stage[] = [
   'signal',
@@ -368,7 +379,7 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
             const pct = Math.max(4, (item.count / dashboard.maxFunnelCount) * 100);
             return (
               <div key={item.stage} className="flex items-center gap-2 text-xs">
-                <div className="w-24 shrink-0 text-right text-slate-500 truncate">{STAGE_LABELS[item.stage]}</div>
+                <div className="w-20 shrink-0 text-right text-slate-500">{FUNNEL_SHORT_LABELS[item.stage]}</div>
                 <div className="flex-1 h-5 rounded-sm bg-slate-100 overflow-hidden">
                   <div className={`h-full rounded-sm ${FUNNEL_BAR_COLORS[item.stage]}`} style={{ width: `${pct}%` }} />
                 </div>
