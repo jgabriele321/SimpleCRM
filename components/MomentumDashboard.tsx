@@ -57,10 +57,10 @@ const formatDate = (value?: string) => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const METRIC_NEUTRAL = 'text-slate-100';
-const METRIC_GREEN = 'text-emerald-300';
-const METRIC_YELLOW = 'text-amber-300';
-const METRIC_RED = 'text-rose-300';
+const METRIC_NEUTRAL = 'text-slate-800';
+const METRIC_GREEN = 'text-emerald-600';
+const METRIC_YELLOW = 'text-amber-500';
+const METRIC_RED = 'text-rose-500';
 
 const FUNNEL_STAGES: Stage[] = [
   'signal',
@@ -308,301 +308,180 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
         ? METRIC_YELLOW
         : METRIC_RED;
 
-  return (
-    <div className="min-h-[calc(100vh-10rem)] rounded-2xl border border-slate-800 bg-slate-950 text-slate-100 p-4 lg:p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">Deal Momentum Dashboard</h2>
-          <p className="text-xs text-slate-400">
-            Week of {weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} -{' '}
-            {weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-          </p>
+  const Tooltip: React.FC<{ items: { id: string | number; line: React.ReactNode }[] }> = ({ items }) =>
+    items.length > 0 ? (
+      <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:block">
+        <div className="bg-slate-900 border border-slate-700 rounded-md p-2 shadow-lg max-h-48 overflow-y-auto w-max max-w-xs">
+          {items.map((i) => <div key={String(i.id)} className="text-xs py-0.5 text-slate-200 whitespace-nowrap">{i.line}</div>)}
         </div>
       </div>
+    ) : null;
 
-      <section className="grid grid-cols-2 xl:grid-cols-5 gap-3">
-        <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3">
-          <p className="text-[11px] uppercase tracking-wider text-slate-400">Proposals Out Now</p>
-          <p className={`text-2xl font-bold ${proposalsColor}`}>{dashboard.proposalsOutDeals.length} / 6</p>
-          {dashboard.proposalsOutDeals.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
-              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
-                {dashboard.proposalsOutDeals.map((d) => (
-                  <div key={String(d.id)} className="text-xs py-0.5">
-                    <span className="text-slate-100">{d.title}</span>
-                    <span className="text-slate-400 ml-1">{formatCurrency(d.expectedValue || 0)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+  return (
+    <div className="space-y-5">
+      <div className="flex items-baseline justify-between">
+        <p className="text-xs text-slate-400">
+          Week of {weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+        </p>
+        <p className="text-xs text-slate-400">Won {dashboard.wonCount} · Lost {dashboard.lostCount}</p>
+      </div>
+
+      {/* Target metrics */}
+      <section className="grid grid-cols-3 gap-4">
+        <div className="relative group">
+          <p className="text-xs text-slate-500">Proposals Out</p>
+          <p className={`text-3xl font-bold tabular-nums ${proposalsColor}`}>{dashboard.proposalsOutDeals.length}<span className="text-base font-normal text-slate-400"> / 6</span></p>
+          <Tooltip items={dashboard.proposalsOutDeals.map(d => ({ id: d.id, line: <>{d.title} <span className="text-slate-400">{formatCurrency(d.expectedValue || 0)}</span></> }))} />
         </div>
-        <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3">
-          <p className="text-[11px] uppercase tracking-wider text-slate-400">Closes Last 30 Days</p>
-          <p className={`text-2xl font-bold ${closesColor}`}>{dashboard.closesLast30Deals.length} / 3</p>
-          {dashboard.closesLast30Deals.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
-              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
-                {dashboard.closesLast30Deals.map((d) => (
-                  <div key={String(d.id)} className="text-xs py-0.5">
-                    <span className="text-slate-100">{d.title}</span>
-                    <span className="text-slate-400 ml-1">{formatCurrency(d.expectedValue || 0)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="relative group">
+          <p className="text-xs text-slate-500">Closes (30d)</p>
+          <p className={`text-3xl font-bold tabular-nums ${closesColor}`}>{dashboard.closesLast30Deals.length}<span className="text-base font-normal text-slate-400"> / 3</span></p>
+          <Tooltip items={dashboard.closesLast30Deals.map(d => ({ id: d.id, line: <>{d.title} <span className="text-slate-400">{formatCurrency(d.expectedValue || 0)}</span></> }))} />
         </div>
-        <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3">
-          <p className="text-[11px] uppercase tracking-wider text-slate-400">Meaningful Convos This Week</p>
-          <p className={`text-2xl font-bold ${meaningfulConvosColor}`}>{dashboard.meaningfulConvosThisWeekDeals.length} / 3</p>
-          {dashboard.meaningfulConvosThisWeekDeals.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
-              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
-                {dashboard.meaningfulConvosThisWeekDeals.map((d) => (
-                  <div key={String(d.id)} className="text-xs py-0.5 text-slate-100">
-                    {d.personName || d.title}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="rounded-xl bg-slate-900 border border-slate-800 p-3">
-          <p className="text-[11px] uppercase tracking-wider text-slate-400">Total Pipeline Value</p>
-          <p className={`text-2xl font-bold ${METRIC_NEUTRAL}`}>{formatCurrency(dashboard.totalPipelineValue)}</p>
-        </div>
-        <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3">
-          <p className="text-[11px] uppercase tracking-wider text-slate-400">Conversations This Week</p>
-          <p className={`text-2xl font-bold ${convoColor}`}>{dashboard.conversationsThisWeekDeals.length}</p>
-          {dashboard.conversationsThisWeekDeals.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
-              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
-                {dashboard.conversationsThisWeekDeals.map((d) => (
-                  <div key={String(d.id)} className="text-xs py-0.5 text-slate-100">
-                    {d.personName || d.title}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3">
-          <p className="text-[11px] uppercase tracking-wider text-slate-400">Expected Revenue (30 Days)</p>
-          <p className={`text-2xl font-bold ${METRIC_NEUTRAL}`}>{formatCurrency(dashboard.expectedRevenue30)}</p>
-          {dashboard.expectedRevenue30Deals.length > 0 && (
-            <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:block">
-              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto w-max max-w-sm">
-                {dashboard.expectedRevenue30Deals.map((d) => {
-                  const weighted = ((d.expectedValue || 0) * (d.closeProbability || 0)) / 100;
-                  return (
-                    <div key={String(d.id)} className="text-xs py-0.5 whitespace-nowrap">
-                      <span className="text-slate-100">{d.title}</span>
-                      <span className="text-slate-400 ml-1">
-                        {formatCurrency(d.expectedValue || 0)}×{d.closeProbability || 0}%={formatCurrency(weighted)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3 col-span-2 xl:col-span-1">
-          <p className="text-[11px] uppercase tracking-wider text-slate-400">Proposals Sent This Month</p>
-          <p className={`text-2xl font-bold ${METRIC_NEUTRAL}`}>{dashboard.proposalsThisMonthDeals.length}</p>
-          {dashboard.proposalsThisMonthDeals.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
-              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
-                {dashboard.proposalsThisMonthDeals.map((d) => (
-                  <div key={String(d.id)} className="text-xs py-0.5">
-                    <span className="text-slate-100">{d.title}</span>
-                    <span className="text-slate-400 ml-1">{formatCurrency(d.expectedValue || 0)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="relative group">
+          <p className="text-xs text-slate-500">Meaningful Convos</p>
+          <p className={`text-3xl font-bold tabular-nums ${meaningfulConvosColor}`}>{dashboard.meaningfulConvosThisWeekDeals.length}<span className="text-base font-normal text-slate-400"> / 3</span></p>
+          <Tooltip items={dashboard.meaningfulConvosThisWeekDeals.map(d => ({ id: d.id, line: <>{d.personName || d.title}</> }))} />
         </div>
       </section>
 
-      <section className="rounded-xl bg-slate-900 border border-slate-800 p-3">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold">Pipeline Funnel</h3>
-          <div className="text-xs text-slate-400">Won: {dashboard.wonCount} | Lost: {dashboard.lostCount}</div>
+      {/* Supporting stats — compact row */}
+      <section className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        <div className="relative group">
+          <span className="text-slate-400">Pipeline </span><span className="font-semibold text-slate-800">{formatCurrency(dashboard.totalPipelineValue)}</span>
         </div>
-        <div className="space-y-2">
+        <div className="relative group">
+          <span className="text-slate-400">Expected (30d) </span><span className="font-semibold text-slate-800">{formatCurrency(dashboard.expectedRevenue30)}</span>
+          <Tooltip items={dashboard.expectedRevenue30Deals.map(d => {
+            const w = ((d.expectedValue || 0) * (d.closeProbability || 0)) / 100;
+            return { id: d.id, line: <>{d.title} <span className="text-slate-400">{formatCurrency(d.expectedValue||0)}×{d.closeProbability||0}%={formatCurrency(w)}</span></> };
+          })} />
+        </div>
+        <div className="relative group">
+          <span className="text-slate-400">Conversations </span><span className={`font-semibold ${convoColor}`}>{dashboard.conversationsThisWeekDeals.length}</span>
+          <Tooltip items={dashboard.conversationsThisWeekDeals.map(d => ({ id: d.id, line: <>{d.personName || d.title}</> }))} />
+        </div>
+        <div className="relative group">
+          <span className="text-slate-400">Proposals sent </span><span className="font-semibold text-slate-800">{dashboard.proposalsThisMonthDeals.length}</span>
+          <Tooltip items={dashboard.proposalsThisMonthDeals.map(d => ({ id: d.id, line: <>{d.title} <span className="text-slate-400">{formatCurrency(d.expectedValue || 0)}</span></> }))} />
+        </div>
+      </section>
+
+      {/* Funnel */}
+      <section>
+        <div className="space-y-1.5">
           {dashboard.funnel.map((item) => {
-            const width = Math.max(8, (item.count / dashboard.maxFunnelCount) * 100);
-            const colorToken = STAGE_COLORS[item.stage].split(' ')[0];
+            const width = Math.max(6, (item.count / dashboard.maxFunnelCount) * 100);
+            const barColor = STAGE_COLORS[item.stage].split(' ')[0];
             return (
-              <div key={item.stage} className="grid grid-cols-12 gap-2 items-center">
-                <div className="col-span-4 sm:col-span-3 text-xs text-slate-300">{STAGE_LABELS[item.stage]}</div>
-                <div className="col-span-8 sm:col-span-6 h-6 rounded bg-slate-800 overflow-hidden">
-                  <div className={`h-full ${colorToken}`} style={{ width: `${width}%` }} />
+              <div key={item.stage} className="flex items-center gap-2 text-xs">
+                <div className="w-28 shrink-0 text-slate-500 text-right">{STAGE_LABELS[item.stage]}</div>
+                <div className="flex-1 h-5 rounded bg-slate-100 overflow-hidden">
+                  <div className={`h-full rounded ${barColor}`} style={{ width: `${width}%` }} />
                 </div>
-                <div className="hidden sm:block col-span-2 text-right text-xs text-slate-300">{item.count} deals</div>
-                <div className="hidden sm:block col-span-1 text-right text-xs text-slate-400">{formatCurrency(item.value)}</div>
+                <div className="w-10 text-right text-slate-600 font-medium">{item.count}</div>
+                <div className="w-16 text-right text-slate-400">{formatCurrency(item.value)}</div>
               </div>
             );
           })}
         </div>
       </section>
 
-      <section className="rounded-xl bg-slate-900 border border-slate-800 p-3">
-        <h3 className="text-sm font-semibold mb-2">Friction Tracker</h3>
-        <div className="hidden md:block overflow-x-auto">
+      {/* Friction Tracker */}
+      <section>
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Needs Attention</h3>
+        <div className="hidden md:block">
           <table className="w-full text-xs">
-            <thead className="text-slate-400 border-b border-slate-800">
+            <thead className="text-slate-400 border-b border-slate-200">
               <tr>
-                <th className="py-2 text-left font-medium">Deal</th>
-                <th className="py-2 text-left font-medium">Value</th>
-                <th className="py-2 text-left font-medium">Days Since Touch</th>
-                <th className="py-2 text-left font-medium">Next Action</th>
-                <th className="py-2 text-left font-medium">Due</th>
-                <th className="py-2 text-left font-medium">Gatekeeper</th>
+                <th className="py-1.5 text-left font-medium">Deal</th>
+                <th className="py-1.5 text-left font-medium">Value</th>
+                <th className="py-1.5 text-left font-medium">Stale</th>
+                <th className="py-1.5 text-left font-medium">Next Action</th>
+                <th className="py-1.5 text-left font-medium">Due</th>
+                <th className="py-1.5 text-left font-medium">Gatekeeper</th>
               </tr>
             </thead>
             <tbody>
               {dashboard.frictionItems.map((item) => {
                 const rowBg = item.staleSeverity === 'red'
-                  ? 'bg-rose-950/30'
+                  ? 'bg-rose-50'
                   : item.staleSeverity === 'yellow'
-                    ? 'bg-amber-950/25'
+                    ? 'bg-amber-50/60'
                     : '';
                 return (
-                <tr
-                  key={String(item.deal.id)}
-                  onClick={() => onEditDeal(item.deal)}
-                  className={`border-b border-slate-900 hover:bg-slate-800/60 cursor-pointer ${rowBg}`}
-                >
-                  <td className="py-2">
-                    <div className="font-medium text-slate-100">{item.deal.title}</div>
-                    <div className="text-slate-400">
-                      {item.deal.personName || '-'} · {item.deal.companyName || '-'}
-                    </div>
-                  </td>
-                  <td className="py-2 text-slate-200">{formatCurrency(item.deal.expectedValue || 0)}</td>
-                  <td className="py-2">
-                    <span
-                      className={
-                        item.staleSeverity === 'red'
-                          ? 'text-rose-300'
-                          : item.staleSeverity === 'yellow'
-                            ? 'text-amber-300'
-                            : 'text-slate-300'
-                      }
-                    >
-                      {item.staleDays === null ? '-' : `${item.staleDays}d`}
-                    </span>
-                  </td>
-                  <td className="py-2 text-slate-300">{item.deal.nextAction || '-'}</td>
-                  <td className={`py-2 ${item.overdueNextAction ? 'text-rose-300 font-semibold' : 'text-slate-400'}`}>
-                    {formatDate(item.deal.nextActionDate)}
-                  </td>
-                  <td className="py-2 text-slate-300">
-                    {item.gatekept
-                      ? `${item.deal.gatekeeperName || 'Gatekept'} · ${formatDate(item.deal.gatekeeperLastContacted)}`
-                      : '-'}
-                  </td>
-                </tr>
+                  <tr
+                    key={String(item.deal.id)}
+                    onClick={() => onEditDeal(item.deal)}
+                    className={`border-b border-slate-100 hover:bg-slate-50 cursor-pointer ${rowBg}`}
+                  >
+                    <td className="py-1.5">
+                      <div className="font-medium text-slate-800">{item.deal.title}</div>
+                      <div className="text-slate-400">{[item.deal.personName, item.deal.companyName].filter(Boolean).join(' · ') || '-'}</div>
+                    </td>
+                    <td className="py-1.5 text-slate-700">{formatCurrency(item.deal.expectedValue || 0)}</td>
+                    <td className="py-1.5">
+                      <span className={item.staleSeverity === 'red' ? 'text-rose-600 font-semibold' : item.staleSeverity === 'yellow' ? 'text-amber-600' : 'text-slate-500'}>
+                        {item.staleDays === null ? '-' : `${item.staleDays}d`}
+                      </span>
+                    </td>
+                    <td className="py-1.5 text-slate-600 max-w-[200px] truncate">{item.deal.nextAction || '-'}</td>
+                    <td className={`py-1.5 ${item.overdueNextAction ? 'text-rose-600 font-semibold' : 'text-slate-400'}`}>
+                      {formatDate(item.deal.nextActionDate)}
+                    </td>
+                    <td className="py-1.5 text-slate-500">
+                      {item.gatekept ? `${item.deal.gatekeeperName || 'Gatekept'}` : '-'}
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
           </table>
-          {dashboard.frictionItems.length === 0 && <p className="text-xs text-slate-400 py-3">No urgent friction flags.</p>}
+          {dashboard.frictionItems.length === 0 && <p className="text-xs text-slate-400 py-2">No friction flags.</p>}
         </div>
 
-        <div className="md:hidden space-y-2">
+        <div className="md:hidden space-y-1.5">
           {dashboard.frictionItems.map((item) => {
-            const cardBg = item.staleSeverity === 'red'
-              ? 'bg-rose-950/30 border-rose-900/40'
-              : item.staleSeverity === 'yellow'
-                ? 'bg-amber-950/25 border-amber-900/40'
-                : 'bg-slate-950 border-slate-800';
+            const bg = item.staleSeverity === 'red' ? 'bg-rose-50 border-rose-200' : item.staleSeverity === 'yellow' ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200';
             return (
-            <button
-              key={String(item.deal.id)}
-              type="button"
-              onClick={() => onEditDeal(item.deal)}
-              className={`w-full text-left rounded-lg border p-3 ${cardBg}`}
-            >
-              <p className="text-sm font-medium">{item.deal.title}</p>
-              <p className="text-xs text-slate-400">
-                {item.deal.personName || '-'} · {item.deal.companyName || '-'}
-              </p>
-              <p className="text-xs text-slate-300 mt-1">Value: {formatCurrency(item.deal.expectedValue || 0)}</p>
-              <p className="text-xs text-slate-300">Next: {item.deal.nextAction || '-'}</p>
-              <p className="text-xs text-slate-400">Due: {formatDate(item.deal.nextActionDate)}</p>
-              {item.gatekept && (
-                <p className="text-xs text-amber-300">
-                  Gatekeeper: {item.deal.gatekeeperName || 'Gatekept'} ({formatDate(item.deal.gatekeeperLastContacted)})
-                </p>
-              )}
-            </button>
+              <button key={String(item.deal.id)} type="button" onClick={() => onEditDeal(item.deal)} className={`w-full text-left rounded border p-2.5 text-xs ${bg}`}>
+                <div className="flex justify-between"><span className="font-medium text-slate-800">{item.deal.title}</span><span className="text-slate-500">{formatCurrency(item.deal.expectedValue || 0)}</span></div>
+                <div className="text-slate-400 mt-0.5">{item.deal.nextAction || '-'}{item.deal.nextActionDate ? ` · ${formatDate(item.deal.nextActionDate)}` : ''}</div>
+              </button>
             );
           })}
-          {dashboard.frictionItems.length === 0 && <p className="text-xs text-slate-400 py-1">No urgent friction flags.</p>}
+          {dashboard.frictionItems.length === 0 && <p className="text-xs text-slate-400">No friction flags.</p>}
         </div>
       </section>
 
-      <section className="rounded-xl bg-slate-900 border border-slate-800 p-3">
-        <h3 className="text-sm font-semibold mb-2">Weekly Activity Log</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-          <div className="rounded bg-slate-950 border border-slate-800 p-2">
-            <p className="text-slate-400">Conversations</p>
-            <p className="text-lg font-semibold">{dashboard.conversationsHeld}</p>
-          </div>
-          <div className="rounded bg-slate-950 border border-slate-800 p-2">
-            <p className="text-slate-400">Proposals Sent</p>
-            <p className="text-lg font-semibold">{dashboard.proposalsSentWeek}</p>
-          </div>
-          <div className="rounded bg-slate-950 border border-slate-800 p-2">
-            <p className="text-slate-400">Follow-ups Made</p>
-            <p className="text-lg font-semibold">{dashboard.followUpsMade}</p>
-          </div>
-          <div className="rounded bg-slate-950 border border-slate-800 p-2">
-            <p className="text-slate-400">Deals Won</p>
-            <p className="text-lg font-semibold text-emerald-300">{dashboard.dealsWonWeek}</p>
-          </div>
-          <div className="rounded bg-slate-950 border border-slate-800 p-2">
-            <p className="text-slate-400">Deals Lost</p>
-            <p className="text-lg font-semibold text-rose-300">{dashboard.dealsLostWeek}</p>
+      {/* Weekly + Trailing — compact inline */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div>
+          <h3 className="font-semibold text-slate-500 uppercase tracking-wide mb-1.5">This Week</h3>
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-slate-600">
+            <span>Conversations <b>{dashboard.conversationsHeld}</b></span>
+            <span>Proposals sent <b>{dashboard.proposalsSentWeek}</b></span>
+            <span>Follow-ups <b>{dashboard.followUpsMade}</b></span>
+            <span>Won <b className="text-emerald-600">{dashboard.dealsWonWeek}</b></span>
+            <span>Lost <b className="text-rose-500">{dashboard.dealsLostWeek}</b></span>
           </div>
         </div>
-      </section>
-
-      <section className="rounded-xl bg-slate-900 border border-slate-800 p-3">
-        <h3 className="text-sm font-semibold mb-2">Trailing Metrics (90 Days)</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-          <div className="rounded bg-slate-950 border border-slate-800 p-2">
-            <p className="text-slate-400">Close Rate</p>
-            <p className="text-lg font-semibold">{dashboard.closeRate.toFixed(0)}%</p>
+        <div>
+          <h3 className="font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Trailing 90 Days</h3>
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-slate-600">
+            <span>Close rate <b>{dashboard.closeRate.toFixed(0)}%</b></span>
+            <span>Avg size <b>{formatCurrency(dashboard.avgDealSize)}</b></span>
+            <span>Avg close <b>{Math.round(dashboard.avgTimeToCloseDays)}d</b></span>
+            <span>Lost <b className="text-rose-500">{dashboard.lostTrailing90Deals.length}</b> · {formatCurrency(dashboard.lostTrailing90Value)}</span>
           </div>
-          <div className="rounded bg-slate-950 border border-slate-800 p-2">
-            <p className="text-slate-400">Avg Deal Size</p>
-            <p className="text-lg font-semibold">{formatCurrency(dashboard.avgDealSize)}</p>
-          </div>
-          <div className="rounded bg-slate-950 border border-slate-800 p-2">
-            <p className="text-slate-400">Avg Time to Close</p>
-            <p className="text-lg font-semibold">{Math.round(dashboard.avgTimeToCloseDays)}d</p>
-          </div>
-          <div className="rounded bg-slate-950 border border-slate-800 p-2">
-            <p className="text-slate-400">Deals Lost (90 Days)</p>
-            <p className="text-lg font-semibold text-rose-300">
-              {dashboard.lostTrailing90Deals.length} · {formatCurrency(dashboard.lostTrailing90Value)}
-            </p>
-          </div>
+          {dashboard.lostTrailing90Deals.length > 0 && (
+            <div className="mt-1 text-slate-400 space-y-0.5">
+              {dashboard.lostTrailing90Deals.map((deal) => (
+                <div key={String(deal.id)}>{deal.title}: {deal.lossReason || 'no reason'}</div>
+              ))}
+            </div>
+          )}
         </div>
-        {dashboard.lostTrailing90Deals.length > 0 && (
-          <div className="mt-2 text-xs text-slate-400 space-y-1">
-            {dashboard.lostTrailing90Deals.map((deal) => (
-              <div key={String(deal.id)} title={deal.lossReason || 'No loss reason'}>
-                {deal.title}: {deal.lossReason || 'No loss reason provided'}
-              </div>
-            ))}
-          </div>
-        )}
       </section>
     </div>
   );
