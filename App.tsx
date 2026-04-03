@@ -281,7 +281,7 @@ function App() {
               title="Download full CRM markdown export"
               className="flex items-center gap-2 text-left rounded hover:bg-slate-50 px-1 py-1 transition-colors"
             >
-              <span className="text-lg font-bold tracking-tight text-slate-900">DDD</span>
+              <span className="text-lg font-bold tracking-tight text-slate-900">Daedalus Deal Dashboard</span>
               <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
             </button>
 
