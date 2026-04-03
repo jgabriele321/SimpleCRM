@@ -191,7 +191,7 @@ function App() {
     }).length;
 
     const lines: string[] = [
-      `# Prism DealFlow Export - ${today}`,
+      `# Daedalus Deal Dashboard Export - ${today}`,
       '',
       `Generated: ${formatDateTime(now.toISOString())}`,
       `Total deals: ${deals.length}`,
@@ -260,7 +260,7 @@ function App() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `prism-dealflow-${today}.md`;
+    anchor.download = `daedalus-deals-${today}.md`;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
@@ -284,7 +284,7 @@ function App() {
               <div className="p-2 bg-indigo-600 rounded-lg text-white">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
               </div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Prism DealFlow</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Daedalus Deal Dashboard</h1>
             </button>
 
             <div className="flex items-center space-x-4 flex-1 justify-end">
