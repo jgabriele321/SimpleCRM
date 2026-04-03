@@ -108,7 +108,7 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
   trailing90Start.setDate(now.getDate() - 90);
 
   const dashboard = useMemo(() => {
-    const proposalsOutDeals = deals.filter((d) => d.stage === 'proposal_sent');
+    const proposalsOutDeals = deals.filter((d) => d.stage === 'proposal_sent' || d.stage === 'verbal_yes');
     const pipelineDeals = deals.filter((d) => !['closed_won', 'closed_lost', 'nurture'].includes(d.stage));
     const totalPipelineValue = pipelineDeals.reduce((sum, d) => sum + (d.expectedValue || 0), 0);
 
