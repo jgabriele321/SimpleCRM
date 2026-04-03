@@ -272,49 +272,45 @@ function App() {
       
       {/* Top Navigation / Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-0">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-0">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
             
             <button
               type="button"
               onClick={handleExportMarkdown}
               title="Download full CRM markdown export"
-              className="flex items-center space-x-3 text-left rounded-lg hover:bg-slate-100 px-1 py-1 transition-colors"
+              className="flex items-center gap-2 text-left rounded hover:bg-slate-50 px-1 py-1 transition-colors"
             >
-              <div className="p-2 bg-indigo-600 rounded-lg text-white">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Daedalus Deal Dashboard</h1>
+              <span className="text-lg font-bold tracking-tight text-slate-900">DDD</span>
+              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
             </button>
 
-            <div className="flex items-center space-x-4 flex-1 justify-end">
-              <a
-                href="/people"
-                className="inline-flex items-center px-5 py-2.5 rounded-lg text-base font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors"
-              >
-                People
-              </a>
+            <div className="flex items-center gap-3 flex-1 justify-end">
               {activeTab === 'pipeline' && (
-                <div className="relative w-full max-w-md hidden md:block">
+                <div className="relative w-full max-w-sm hidden md:block">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                     <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                     <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                   </span>
                   <input
                     type="text"
-                    placeholder="Search deals, people, tags..."
-                    className="w-full py-2 pl-10 pr-4 rounded-lg bg-slate-100 border-none focus:ring-2 focus:ring-indigo-500 text-sm transition-all"
+                    placeholder="Search deals..."
+                    className="w-full py-1.5 pl-9 pr-3 rounded-md bg-slate-100 border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     value={filters.search}
                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                   />
                 </div>
               )}
-              
+              <a
+                href="/people"
+                className="text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                People
+              </a>
               <button 
                 onClick={handleCreate}
-                className="flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors whitespace-nowrap"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded-md font-medium transition-colors whitespace-nowrap"
               >
-                <svg className="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                New Deal
+                + New Deal
               </button>
             </div>
           </div>
@@ -346,8 +342,8 @@ function App() {
 
         {/* Filter Bar (Only show in Pipeline view) */}
         {activeTab === 'pipeline' && (
-          <div className="border-t border-slate-100 bg-slate-50/50 backdrop-blur-xl">
-             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 overflow-x-auto no-scrollbar flex items-center gap-3">
+          <div className="border-t border-slate-100 bg-slate-50">
+             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 overflow-x-auto no-scrollbar flex items-center gap-2">
                <div className="flex items-center pr-4 border-r border-slate-200 mr-2">
                  <label className="flex items-center space-x-2 cursor-pointer text-sm font-medium text-slate-600 select-none">
                    <input 
@@ -396,20 +392,11 @@ function App() {
         ) : (
           <>
             {filteredDeals.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
-                <div className="mx-auto h-16 w-16 text-slate-300 mb-4">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                </div>
-                <h3 className="mt-2 text-lg font-medium text-slate-900">No deals found</h3>
-                <p className="mt-1 text-sm text-slate-500">Adjust your filters or create a new opportunity to get started.</p>
-                <div className="mt-6">
-                  <button onClick={handleCreate} className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
-                    <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Create Deal
-                  </button>
-                </div>
+              <div className="text-center py-16">
+                <p className="text-sm text-slate-500">No deals match your filters.</p>
+                <button onClick={handleCreate} className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-700">
+                  + Create a deal
+                </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
