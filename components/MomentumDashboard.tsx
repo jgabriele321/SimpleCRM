@@ -85,6 +85,22 @@ const isActivePipelineStage = (stage: Stage) => ACTIVE_PIPELINE_STAGES.includes(
 /** When the deal last changed stage (used for win/loss timing — do not fall back to updatedAt). */
 const stageChangedDate = (d: Deal) => toDate(d.stageChangedAt);
 
+/** Backfilled deals: created directly as closed_won (no stageChangedAt) or stageChangedAt within 24h of createdAt. */
+const isBackfilled = (d: Deal) => {
+  if (d.stage === 'closed_won' && !d.stageChangedAt) return true;
+  const created = toDate(d.createdAt);
+  const changed = stageChangedDate(d);
+  if (!created || !changed) return false;
+  return Math.abs(changed.getTime() - created.getTime()) < DAY_MS;
+};
+
+const MEANINGFUL_CONVO_STAGES: Stage[] = [
+  'active_convo',
+  'ready_for_proposal',
+  'proposal_sent',
+  'verbal_yes'
+];
+
 /** True if the deal entered proposal_sent during [start, end] (uses proposalSentAt; legacy fallback if still in proposal_sent). */
 const enteredProposalSentInRange = (d: Deal, start: Date, end: Date) => {
   const sentAt = toDate(d.proposalSentAt);
@@ -142,20 +158,17 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
     const maxFunnelCount = Math.max(...funnel.map((f) => f.count), 1);
 
     const frictionItems: FrictionItem[] = deals
-      .filter((deal) => isActivePipelineStage(deal.stage))
+      .filter((deal) => isActivePipelineStage(deal.stage) && deal.stage !== 'closed_lost')
       .map((deal) => {
         const lastTouchDate = toDate(deal.lastContactDate);
         const staleDays = lastTouchDate ? Math.floor((now.getTime() - lastTouchDate.getTime()) / DAY_MS) : null;
         const staleSeverity =
-          staleDays === null ? null : staleDays > 21 ? 'red' : staleDays > 14 ? 'yellow' : null;
+          staleDays === null ? null : staleDays >= 14 ? 'red' : staleDays >= 7 ? 'yellow' : null;
         const nextActionDate = toDate(deal.nextActionDate);
         const overdueNextAction = !!nextActionDate && nextActionDate < now;
         const gatekept = !!deal.isGatekept;
 
         if (!staleSeverity && !overdueNextAction && !gatekept) return null;
-
-        const urgency =
-          (overdueNextAction ? 300 : 0) + (staleSeverity === 'red' ? 200 : staleSeverity === 'yellow' ? 100 : 0) + (gatekept ? 50 : 0);
 
         return {
           deal,
@@ -163,11 +176,14 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
           staleSeverity,
           overdueNextAction,
           gatekept,
-          urgency
+          urgency: 0
         };
       })
       .filter((item): item is FrictionItem => item !== null)
-      .sort((a, b) => b.urgency - a.urgency);
+      .sort((a, b) => {
+        if (a.overdueNextAction !== b.overdueNextAction) return a.overdueNextAction ? -1 : 1;
+        return (b.staleDays || 0) - (a.staleDays || 0);
+      });
 
     const conversationsHeld = deals.filter((d) => {
       if (!isActivePipelineStage(d.stage)) return false;
@@ -184,6 +200,7 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
 
     const dealsWonWeek = deals.filter((d) => {
       if (d.stage !== 'closed_won') return false;
+      if (isBackfilled(d)) return false;
       const closed = stageChangedDate(d);
       return !!closed && isInRange(closed, weekStart, weekEnd);
     }).length;
@@ -196,6 +213,7 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
 
     const closedTrailing90 = deals.filter((d) => {
       if (d.stage !== 'closed_won' && d.stage !== 'closed_lost') return false;
+      if (isBackfilled(d)) return false;
       const closeDate = stageChangedDate(d);
       return !!closeDate && isInRange(closeDate, trailing90Start, now);
     });
@@ -224,12 +242,13 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
     trailing30Start.setDate(now.getDate() - 30);
     const closesLast30Deals = deals.filter((d) => {
       if (d.stage !== 'closed_won') return false;
+      if (isBackfilled(d)) return false;
       const closed = stageChangedDate(d);
       return !!closed && isInRange(closed, trailing30Start, now);
     });
 
-    const discoveryCallsThisWeekDeals = deals.filter((d) => {
-      if (d.stage !== 'active_convo') return false;
+    const meaningfulConvosThisWeekDeals = deals.filter((d) => {
+      if (!MEANINGFUL_CONVO_STAGES.includes(d.stage)) return false;
       const lastContact = toDate(d.lastContactDate);
       return isInRange(lastContact, weekStart, weekEnd);
     });
@@ -242,7 +261,7 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
       conversationsThisWeekDeals,
       proposalsThisMonthDeals,
       closesLast30Deals,
-      discoveryCallsThisWeekDeals,
+      meaningfulConvosThisWeekDeals,
       funnel,
       wonCount,
       lostCount,
@@ -282,10 +301,10 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
         ? METRIC_YELLOW
         : METRIC_RED;
 
-  const discoveryColor =
-    dashboard.discoveryCallsThisWeekDeals.length >= 3
+  const meaningfulConvosColor =
+    dashboard.meaningfulConvosThisWeekDeals.length >= 3
       ? METRIC_GREEN
-      : dashboard.discoveryCallsThisWeekDeals.length === 2
+      : dashboard.meaningfulConvosThisWeekDeals.length === 2
         ? METRIC_YELLOW
         : METRIC_RED;
 
@@ -335,12 +354,12 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
           )}
         </div>
         <div className="relative group rounded-xl bg-slate-900 border border-slate-800 p-3">
-          <p className="text-[11px] uppercase tracking-wider text-slate-400">Discovery Calls This Week</p>
-          <p className={`text-2xl font-bold ${discoveryColor}`}>{dashboard.discoveryCallsThisWeekDeals.length} / 3</p>
-          {dashboard.discoveryCallsThisWeekDeals.length > 0 && (
+          <p className="text-[11px] uppercase tracking-wider text-slate-400">Meaningful Convos This Week</p>
+          <p className={`text-2xl font-bold ${meaningfulConvosColor}`}>{dashboard.meaningfulConvosThisWeekDeals.length} / 3</p>
+          {dashboard.meaningfulConvosThisWeekDeals.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
               <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
-                {dashboard.discoveryCallsThisWeekDeals.map((d) => (
+                {dashboard.meaningfulConvosThisWeekDeals.map((d) => (
                   <div key={String(d.id)} className="text-xs py-0.5 text-slate-100">
                     {d.personName || d.title}
                   </div>
@@ -445,11 +464,17 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
               </tr>
             </thead>
             <tbody>
-              {dashboard.frictionItems.map((item) => (
+              {dashboard.frictionItems.map((item) => {
+                const rowBg = item.staleSeverity === 'red'
+                  ? 'bg-rose-950/30'
+                  : item.staleSeverity === 'yellow'
+                    ? 'bg-amber-950/25'
+                    : '';
+                return (
                 <tr
                   key={String(item.deal.id)}
                   onClick={() => onEditDeal(item.deal)}
-                  className="border-b border-slate-900 hover:bg-slate-800/60 cursor-pointer"
+                  className={`border-b border-slate-900 hover:bg-slate-800/60 cursor-pointer ${rowBg}`}
                 >
                   <td className="py-2">
                     <div className="font-medium text-slate-100">{item.deal.title}</div>
@@ -481,19 +506,26 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
                       : '-'}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           {dashboard.frictionItems.length === 0 && <p className="text-xs text-slate-400 py-3">No urgent friction flags.</p>}
         </div>
 
         <div className="md:hidden space-y-2">
-          {dashboard.frictionItems.map((item) => (
+          {dashboard.frictionItems.map((item) => {
+            const cardBg = item.staleSeverity === 'red'
+              ? 'bg-rose-950/30 border-rose-900/40'
+              : item.staleSeverity === 'yellow'
+                ? 'bg-amber-950/25 border-amber-900/40'
+                : 'bg-slate-950 border-slate-800';
+            return (
             <button
               key={String(item.deal.id)}
               type="button"
               onClick={() => onEditDeal(item.deal)}
-              className="w-full text-left rounded-lg border border-slate-800 bg-slate-950 p-3"
+              className={`w-full text-left rounded-lg border p-3 ${cardBg}`}
             >
               <p className="text-sm font-medium">{item.deal.title}</p>
               <p className="text-xs text-slate-400">
@@ -508,7 +540,8 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
                 </p>
               )}
             </button>
-          ))}
+            );
+          })}
           {dashboard.frictionItems.length === 0 && <p className="text-xs text-slate-400 py-1">No urgent friction flags.</p>}
         </div>
       </section>
