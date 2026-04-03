@@ -372,15 +372,15 @@ export const MomentumDashboard: React.FC<MomentumDashboardProps> = ({ deals, onE
           <p className="text-[11px] uppercase tracking-wider text-slate-400">Expected Revenue (30 Days)</p>
           <p className={`text-2xl font-bold ${METRIC_NEUTRAL}`}>{formatCurrency(dashboard.expectedRevenue30)}</p>
           {dashboard.expectedRevenue30Deals.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-50 hidden group-hover:block">
-              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto">
+            <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:block">
+              <div className="bg-black/95 border border-slate-700 rounded-lg p-2 shadow-xl max-h-48 overflow-y-auto w-max max-w-sm">
                 {dashboard.expectedRevenue30Deals.map((d) => {
                   const weighted = ((d.expectedValue || 0) * (d.closeProbability || 0)) / 100;
                   return (
-                    <div key={String(d.id)} className="text-xs py-0.5">
+                    <div key={String(d.id)} className="text-xs py-0.5 whitespace-nowrap">
                       <span className="text-slate-100">{d.title}</span>
                       <span className="text-slate-400 ml-1">
-                        {formatCurrency(d.expectedValue || 0)} × {d.closeProbability || 0}% = {formatCurrency(weighted)}
+                        {formatCurrency(d.expectedValue || 0)}×{d.closeProbability || 0}%={formatCurrency(weighted)}
                       </span>
                     </div>
                   );
