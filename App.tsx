@@ -1,12 +1,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Deal, FilterState, Stage, STAGE_LABELS, STAGE_COLORS } from './types';
+import { Deal, FilterState, Stage, ReferralPartner, STAGE_LABELS, STAGE_COLORS } from './types';
 import { dealService } from './services/dealService';
+import { referralPartnerService } from './services/referralPartnerService';
 import { DealCard } from './components/DealCard';
 import { DealForm } from './components/DealForm';
 import { PipelineStats } from './components/PipelineStats';
 import { MomentumDashboard } from './components/MomentumDashboard';
+import { ReferralPartnersView } from './components/ReferralPartnersView';
+import { ReferralPartnerForm } from './components/ReferralPartnerForm';
 
-type Tab = 'dashboard' | 'pipeline';
+type Tab = 'dashboard' | 'pipeline' | 'partners';
 
 const TARGETED_DEALS_KEY = 'prism_targeted_deals';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -39,6 +42,36 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
 
+  // Referral partners
+  const [partners, setPartners] = useState<ReferralPartner[]>([]);
+  const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
+  const [selectedPartner, setSelectedPartner] = useState<ReferralPartner | null>(null);
+  const partnerNameById = useMemo(() => {
+    const m: Record<number, string> = {};
+    partners.forEach((p) => { m[p.id] = p.name; });
+    return m;
+  }, [partners]);
+
+  const loadPartners = async () => {
+    try {
+      setPartners(await referralPartnerService.getAll());
+    } catch (err) {
+      console.error('Failed to load referral partners', err);
+    }
+  };
+
+  const handleNewPartner = () => { setSelectedPartner(null); setIsPartnerModalOpen(true); };
+  const handleEditPartner = (p: ReferralPartner) => { setSelectedPartner(p); setIsPartnerModalOpen(true); };
+  const handleSavePartner = async (data: Partial<ReferralPartner>) => {
+    if (selectedPartner) await referralPartnerService.update(selectedPartner.id, data);
+    else await referralPartnerService.create(data);
+    await loadPartners();
+  };
+  const handleDeletePartner = async (id: number) => {
+    await referralPartnerService.delete(id);
+    await Promise.all([loadPartners(), loadDeals()]);
+  };
+
   const toggleTargeted = async (dealId: string | number) => {
     try {
       const updated = await dealService.toggleTarget(dealId);
@@ -54,12 +87,14 @@ function App() {
     stages: [],
     priorities: [],
     tags: [],
+    owners: [],
     hideClosed: true,
   });
 
-  // Fetch Deals
+  // Fetch Deals + referral partners
   useEffect(() => {
     loadDeals();
+    loadPartners();
   }, []);
 
   const loadDeals = async () => {
@@ -97,6 +132,7 @@ function App() {
         const created = await dealService.create(dealData);
         setDeals(prev => [created, ...prev]);
       }
+      loadPartners(); // referral counts may have changed
     } catch (err) {
       console.error(err);
       throw err;
@@ -123,7 +159,10 @@ function App() {
       
       // Stage
       if (filters.stages.length > 0 && !filters.stages.includes(deal.stage)) return false;
-      
+
+      // Owner (Johnny / Joe)
+      if (filters.owners.length > 0 && !filters.owners.includes(deal.owner || 'Johnny')) return false;
+
       // Closed Toggle
       if (filters.hideClosed && (deal.stage === 'closed_won' || deal.stage === 'closed_lost')) return false;
 
@@ -147,9 +186,18 @@ function App() {
   const toggleStageFilter = (stage: Stage) => {
     setFilters(prev => ({
       ...prev,
-      stages: prev.stages.includes(stage) 
+      stages: prev.stages.includes(stage)
         ? prev.stages.filter(s => s !== stage)
         : [...prev.stages, stage]
+    }));
+  };
+
+  const toggleOwnerFilter = (owner: string) => {
+    setFilters(prev => ({
+      ...prev,
+      owners: prev.owners.includes(owner)
+        ? prev.owners.filter(o => o !== owner)
+        : [...prev.owners, owner]
     }));
   };
 
@@ -337,6 +385,16 @@ function App() {
             >
               Pipeline View
             </button>
+            <button
+              onClick={() => setActiveTab('partners')}
+              className={`pb-4 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'partners'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              Referral Partners
+            </button>
           </div>
         </div>
 
@@ -355,7 +413,29 @@ function App() {
                    <span>Active Pipeline Only</span>
                  </label>
                </div>
-               
+
+               <div className="flex items-center gap-1.5 pr-4 border-r border-slate-200 mr-2">
+                 {['Johnny', 'Joe'].map((owner) => {
+                   const isActive = filters.owners.includes(owner);
+                   return (
+                     <button
+                       key={owner}
+                       onClick={() => toggleOwnerFilter(owner)}
+                       title={`Show only ${owner}'s deals`}
+                       className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
+                         isActive
+                           ? owner === 'Joe'
+                             ? 'bg-teal-50 text-teal-700 border-teal-300 ring-1 ring-offset-1 ring-teal-300'
+                             : 'bg-indigo-50 text-indigo-700 border-indigo-300 ring-1 ring-offset-1 ring-indigo-300'
+                           : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                       }`}
+                     >
+                       {owner}
+                     </button>
+                   );
+                 })}
+               </div>
+
                {Object.keys(STAGE_LABELS).map((key) => {
                  const stage = key as Stage;
                  const isActive = filters.stages.includes(stage);
@@ -389,6 +469,14 @@ function App() {
           </div>
         ) : activeTab === 'dashboard' ? (
           <MomentumDashboard deals={deals} onEditDeal={handleEdit} />
+        ) : activeTab === 'partners' ? (
+          <ReferralPartnersView
+            partners={partners}
+            deals={deals}
+            onNew={handleNewPartner}
+            onEditPartner={handleEditPartner}
+            onEditDeal={handleEdit}
+          />
         ) : (
           <>
             {filteredDeals.length === 0 ? (
@@ -401,12 +489,13 @@ function App() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredDeals.map(deal => (
-                  <DealCard 
-                    key={deal.id} 
-                    deal={deal} 
+                  <DealCard
+                    key={deal.id}
+                    deal={deal}
                     onClick={handleEdit}
                     isTargeted={deal.isTargeted}
                     onToggleTarget={() => toggleTargeted(deal.id)}
+                    referralPartnerName={deal.referralPartnerId ? partnerNameById[deal.referralPartnerId] : undefined}
                   />
                 ))}
               </div>
@@ -419,13 +508,22 @@ function App() {
       {activeTab === 'pipeline' && <PipelineStats deals={filteredDeals} />}
 
       {/* Modals */}
-      <DealForm 
+      <DealForm
         isOpen={isModalOpen}
         initialData={selectedDeal}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSave}
+        referralPartners={partners}
       />
-      
+
+      <ReferralPartnerForm
+        isOpen={isPartnerModalOpen}
+        initialData={selectedPartner}
+        onClose={() => setIsPartnerModalOpen(false)}
+        onSave={handleSavePartner}
+        onDelete={handleDeletePartner}
+      />
+
     </div>
   );
 }

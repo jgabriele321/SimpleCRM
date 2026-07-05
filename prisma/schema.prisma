@@ -12,6 +12,8 @@ model Deal {
   title             String
   personName        String?
   companyName       String?
+  email             String?
+  phone             String?
   stage             String    @default("signal")
   tags              String    @default("[]")
   priority          String    @default("medium")
@@ -29,8 +31,29 @@ model Deal {
   isGatekept        Boolean   @default(false)
   notes             String?
   isTargeted        Boolean   @default(false)
+  owner             String    @default("Johnny")
+  referralPartnerId Int?
+  referralPartner   ReferralPartner? @relation(fields: [referralPartnerId], references: [id], onDelete: SetNull)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+}
+
+// People who send us clients. Tracked so we can keep the relationship warm
+// (and send a thank-you / Christmas basket to the mailing address).
+model ReferralPartner {
+  id              Int      @id @default(autoincrement())
+  name            String
+  company         String?
+  email           String?
+  phone           String?
+  mailingAddress  String?  // for gifts / Christmas baskets
+  relationship    String?  // how we know them
+  giftNotes       String?  // e.g. "likes red wine", "kosher", "has 2 kids"
+  notes           String?
+  lastThankYouSent DateTime?
+  deals           Deal[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 

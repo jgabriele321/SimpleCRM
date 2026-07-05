@@ -15,6 +15,8 @@ export interface Deal {
   title: string;
   personName?: string;
   companyName?: string;
+  email?: string;
+  phone?: string;
   stage: Stage;
   tags: string[]; // Stored as JSON string in DB, array here
   priority: Priority;
@@ -33,8 +35,41 @@ export interface Deal {
   isGatekept?: boolean;
   notes?: string;
   isTargeted: boolean;
+  /** Creator of the deal — "Johnny" or "Joe". Set server-side from login. */
+  owner?: string;
+  /** Id of the ReferralPartner who sent us this deal (null/undefined if none). */
+  referralPartnerId?: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ReferralPartnerStats {
+  dealCount: number;
+  wonCount: number;
+  openCount: number;
+  totalValue: number;
+  wonValue: number;
+}
+
+export interface ReferralPartner {
+  id: number;
+  name: string;
+  company?: string;
+  email?: string;
+  phone?: string;
+  /** Mailing address — for thank-you gifts / Christmas baskets. */
+  mailingAddress?: string;
+  /** How we know them. */
+  relationship?: string;
+  /** Gift hints, e.g. "likes red wine", "kosher", "has 2 kids". */
+  giftNotes?: string;
+  notes?: string;
+  /** Last time we sent a thank-you / gift. */
+  lastThankYouSent?: string | null;
+  /** Computed referral stats (present on the list endpoint). */
+  stats?: ReferralPartnerStats;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface FilterState {
@@ -42,8 +77,14 @@ export interface FilterState {
   stages: Stage[];
   priorities: Priority[];
   tags: string[];
+  owners: string[];
   hideClosed: boolean;
 }
+
+export const OWNER_COLORS: Record<string, string> = {
+  Johnny: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  Joe: 'bg-teal-50 text-teal-700 border-teal-200',
+};
 
 export const STAGE_LABELS: Record<Stage, string> = {
   signal: 'Signal / Early Lead',

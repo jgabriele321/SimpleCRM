@@ -1,14 +1,15 @@
 import React from 'react';
-import { Deal, STAGE_LABELS, STAGE_COLORS, PRIORITY_COLORS } from '../types';
+import { Deal, STAGE_LABELS, STAGE_COLORS, PRIORITY_COLORS, OWNER_COLORS } from '../types';
 
 interface DealCardProps {
   deal: Deal;
   onClick: (deal: Deal) => void;
   isTargeted: boolean;
   onToggleTarget: () => void;
+  referralPartnerName?: string;
 }
 
-export const DealCard: React.FC<DealCardProps> = ({ deal, onClick, isTargeted, onToggleTarget }) => {
+export const DealCard: React.FC<DealCardProps> = ({ deal, onClick, isTargeted, onToggleTarget, referralPartnerName }) => {
   const formattedValue = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -47,6 +48,21 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onClick, isTargeted, o
           {[deal.personName, deal.companyName].filter(Boolean).join(' · ') || '\u00A0'}
         </div>
 
+        {(deal.email || deal.phone) && (
+          <div className="flex flex-col gap-0.5 text-xs text-slate-400 leading-tight">
+            {deal.email && (
+              <a href={`mailto:${deal.email}`} onClick={(e) => e.stopPropagation()} className="hover:text-indigo-600 truncate">
+                {deal.email}
+              </a>
+            )}
+            {deal.phone && (
+              <a href={`tel:${deal.phone}`} onClick={(e) => e.stopPropagation()} className="hover:text-indigo-600">
+                {deal.phone}
+              </a>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded ${STAGE_COLORS[deal.stage]}`}>
             {STAGE_LABELS[deal.stage]}
@@ -54,6 +70,16 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onClick, isTargeted, o
           <span className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded ${PRIORITY_COLORS[deal.priority]}`}>
             {deal.priority}
           </span>
+          {deal.owner && (
+            <span className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border ${OWNER_COLORS[deal.owner] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+              {deal.owner}
+            </span>
+          )}
+          {referralPartnerName && (
+            <span title={`Referred by ${referralPartnerName}`} className="text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200">
+              via {referralPartnerName}
+            </span>
+          )}
           {deal.closeProbability > 0 && (
             <span className="text-[10px] text-slate-400 ml-auto">{deal.closeProbability}%</span>
           )}

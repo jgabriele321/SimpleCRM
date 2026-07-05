@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Deal, Stage, Priority, STAGE_LABELS } from '../types';
+import { Deal, Stage, Priority, STAGE_LABELS, ReferralPartner } from '../types';
 
 interface DealFormProps {
   initialData?: Deal | null;
   isOpen: boolean;
   onClose: () => void;
   onSave: (deal: Partial<Deal>) => Promise<void>;
+  referralPartners?: ReferralPartner[];
 }
 
 const DEFAULT_DEAL: Partial<Deal> = {
@@ -22,7 +23,7 @@ const DEFAULT_DEAL: Partial<Deal> = {
 const inputClass = 'w-full px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500';
 const labelClass = 'block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1';
 
-export const DealForm: React.FC<DealFormProps> = ({ initialData, isOpen, onClose, onSave }) => {
+export const DealForm: React.FC<DealFormProps> = ({ initialData, isOpen, onClose, onSave, referralPartners = [] }) => {
   const [formData, setFormData] = useState<Partial<Deal>>(DEFAULT_DEAL);
   const [tagInput, setTagInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -131,6 +132,31 @@ export const DealForm: React.FC<DealFormProps> = ({ initialData, isOpen, onClose
               <label className={labelClass}>Contact</label>
               <input type="text" className={inputClass} placeholder="Alice Johnson" value={formData.personName || ''} onChange={(e) => handleChange('personName', e.target.value)} />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Email</label>
+              <input type="email" className={inputClass} placeholder="alice@acme.com" value={formData.email || ''} onChange={(e) => handleChange('email', e.target.value)} />
+            </div>
+            <div>
+              <label className={labelClass}>Phone</label>
+              <input type="tel" className={inputClass} placeholder="+1 555 123 4567" value={formData.phone || ''} onChange={(e) => handleChange('phone', e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Referred by</label>
+            <select
+              className={inputClass}
+              value={formData.referralPartnerId ?? ''}
+              onChange={(e) => handleChange('referralPartnerId', e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">— No referral partner —</option>
+              {referralPartners.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}{p.company ? ` (${p.company})` : ''}</option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
